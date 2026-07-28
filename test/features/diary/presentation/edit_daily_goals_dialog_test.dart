@@ -1,0 +1,108 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:arndt_fitness/features/diary/domain/entities/daily_goals.dart';
+import 'package:arndt_fitness/features/diary/presentation/controllers/diary_providers.dart';
+import 'package:arndt_fitness/features/diary/presentation/widgets/edit_daily_goals_dialog.dart';
+
+import '../fakes/fake_diary_repository.dart';
+
+void main() {
+  const startingGoals = DailyGoals(
+    calorieGoal: 2000,
+    proteinGoalG: 150,
+    carbsGoalG: 200,
+    fatGoalG: 65,
+  );
+
+  Future<FakeDiaryRepository> pumpDialog(WidgetTester tester) async {
+    final fake = FakeDiaryRepository(goals: startingGoals);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [diaryRepositoryProvider.overrideWithValue(fake)],
+        child: MaterialApp(
+          home: Consumer(
+            builder: (context, ref, _) => ElevatedButton(
+              onPressed: () =>
+                  showEditDailyGoalsDialog(context, ref, startingGoals),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    return fake;
+  }
+
+  testWidgets('pre-fills fields from the current goals', (tester) async {
+    await pumpDialog(tester);
+
+    final calorieField = tester.widget<TextField>(
+      find.byKey(const Key('goals-calorie-field')),
+    );
+    final proteinField = tester.widget<TextField>(
+      find.byKey(const Key('goals-protein-field')),
+    );
+    final carbsField = tester.widget<TextField>(
+      find.byKey(const Key('goals-carbs-field')),
+    );
+    final fatField = tester.widget<TextField>(
+      find.byKey(const Key('goals-fat-field')),
+    );
+
+    expect(calorieField.controller!.text, '2000');
+    expect(proteinField.controller!.text, '150');
+    expect(carbsField.controller!.text, '200');
+    expect(fatField.controller!.text, '65');
+  });
+
+  testWidgets('saving calls updateDailyGoals with the edited values', (
+    tester,
+  ) async {
+    final fake = await pumpDialog(tester);
+
+    await tester.enterText(
+      find.byKey(const Key('goals-calorie-field')),
+      '2200',
+    );
+    await tester.enterText(
+      find.byKey(const Key('goals-protein-field')),
+      '160',
+    );
+
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(fake.goals.calorieGoal, 2200);
+    expect(fake.goals.proteinGoalG, 160);
+    expect(fake.goals.carbsGoalG, 200);
+    expect(fake.goals.fatGoalG, 65);
+  });
+
+  testWidgets('does not save when a field is invalid/empty', (tester) async {
+    final fake = await pumpDialog(tester);
+
+    await tester.enterText(find.byKey(const Key('goals-calorie-field')), '');
+
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(fake.goals.calorieGoal, startingGoals.calorieGoal);
+  });
+
+  testWidgets('Cancel closes without saving', (tester) async {
+    final fake = await pumpDialog(tester);
+
+    await tester.enterText(
+      find.byKey(const Key('goals-calorie-field')),
+      '9999',
+    );
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(fake.goals.calorieGoal, startingGoals.calorieGoal);
+  });
+}
