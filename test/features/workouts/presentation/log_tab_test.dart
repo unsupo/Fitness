@@ -96,23 +96,25 @@ void main() {
         await tester.tap(find.text('Bench Press').last);
         await tester.pumpAndSettle();
 
-        // The exercise card is now showing with its inline add-set form.
+        // The exercise card is now showing with a blank Set 1 row.
         expect(find.text('Bench Press'), findsOneWidget);
         const benchPressId = 1;
         expect(
-          find.byKey(const Key('weight-field-$benchPressId')),
+          find.byKey(const Key('weight-field-$benchPressId-1')),
           findsOneWidget,
         );
 
         await tester.enterText(
-          find.byKey(const Key('weight-field-$benchPressId')),
+          find.byKey(const Key('weight-field-$benchPressId-1')),
           '135',
         );
         await tester.enterText(
-          find.byKey(const Key('reps-field-$benchPressId')),
+          find.byKey(const Key('reps-field-$benchPressId-1')),
           '8',
         );
-        await tester.tap(find.byKey(const Key('add-set-button-$benchPressId')));
+        await tester.tap(
+          find.byKey(const Key('confirm-set-button-$benchPressId-1')),
+        );
         await tester.pumpAndSettle();
 
         expect(fake.lastLogSetCall, isNotNull);
@@ -170,6 +172,32 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(fake.getLastSessionCallCount, greaterThan(callsBefore));
+      },
+    );
+
+    testWidgets(
+      'tapping "Repeat this workout" starts a session pre-loaded with the '
+      'last session\'s exercises',
+      (tester) async {
+        final fake = FakeWorkoutRepository();
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [workoutRepositoryProvider.overrideWithValue(fake)],
+            child: const MaterialApp(home: Scaffold(body: LogTab())),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Repeat this workout'));
+        await tester.pumpAndSettle();
+
+        expect(fake.lastStartSessionCall, isNotNull);
+        // Default session 1's sets are Bench Press then Squat — both
+        // exercise cards should already be showing, no manual Add Exercise
+        // needed.
+        expect(find.text('Bench Press'), findsOneWidget);
+        expect(find.text('Squat'), findsOneWidget);
       },
     );
 

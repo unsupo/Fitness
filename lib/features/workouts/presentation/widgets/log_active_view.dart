@@ -6,28 +6,26 @@ import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/machine.dart';
 import '../../domain/entities/workout_session.dart';
 import '../../domain/entities/workout_set.dart';
+import '../controllers/exercises_providers.dart';
 import '../controllers/log_providers.dart';
-import 'edit_workout_set_dialog.dart';
+import '../controllers/workout_repository_provider.dart';
 import 'log_exercise_card.dart';
 
 /// The Log tab's active-session body: a date header with a "Finish
-/// Workout" action, the list of exercises added so far (each an editable
-/// [LogExerciseCard]), and an "Add Exercise" button.
+/// Workout" action, the list of exercises added so far (each a Strong-style
+/// [LogExerciseCard] — see docs/features/workouts-log-redesign.md), and an
+/// "Add Exercise" button.
 ///
 /// [machines] is the locally-tracked, in-order list of machines added to
 /// this session by `LogTab` — a machine only gets a persisted `workout_sets`
-/// row once a set is logged against it, so it can appear here before
-/// [sessionSetsProvider] has any rows for it. Once sets exist, they're
-/// looked up from [sessionSetsProvider] and merged in by `machineId`.
+/// row once a set is confirmed against it, so it can appear here before
+/// [sessionSetsProvider] has any rows for it.
 ///
-/// Deviation from docs/features/workouts-log.md: the spec suggests reusing
-/// `MachineSetGroup`/`groupSetsByMachine` from `domain/use_cases/` to shape
-/// this list. That helper only produces one entry per machine that already
-/// has at least one set, but this screen also needs to show a just-added
-/// exercise with zero sets yet (so its inline add-set form has somewhere to
-/// render) — so the grouping here is done directly against the explicit,
-/// caller-tracked [machines] order instead, and only reaches into the flat
-/// set list to filter each machine's own sets.
+/// Unlike the previous design, this widget talks to
+/// [workoutRepositoryProvider] directly (logSet/updateSet/deleteSet) rather
+/// than delegating through a callback prop — each [LogExerciseCard] row can
+/// independently be a new set (logSet) or an edit of an already-persisted
+/// one (updateSet), which the card itself doesn't know or need to know.
 class LogActiveView extends ConsumerWidget {
   const LogActiveView({
     super.key,
@@ -35,14 +33,12 @@ class LogActiveView extends ConsumerWidget {
     required this.machines,
     required this.onFinish,
     required this.onAddExercise,
-    required this.onLogSet,
   });
 
   final WorkoutSession session;
   final List<Machine> machines;
   final VoidCallback onFinish;
   final VoidCallback onAddExercise;
-  final void Function(WorkoutSet draft) onLogSet;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -96,29 +92,42 @@ class LogActiveView extends ConsumerWidget {
                         ),
                       ),
                     for (final machine in machines) ...[
-                      LogExerciseCard(
-                        machine: machine,
-                        sets:
-                            sets
-                                .where((s) => s.machineId == machine.id)
-                                .toList()
-                              ..sort(
-                                (a, b) => a.setNumber.compareTo(b.setNumber),
-                              ),
-                        onAddSet: (input) => onLogSet(
-                          _buildSet(
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final historyAsync = ref.watch(
+                            setsForMachineProvider(machine.id),
+                          );
+                          final machineSets =
+                              sets
+                                  .where((s) => s.machineId == machine.id)
+                                  .toList()
+                                ..sort(
+                                  (a, b) =>
+                                      a.setNumber.compareTo(b.setNumber),
+                                );
+
+                          return LogExerciseCard(
                             machine: machine,
-                            existingSetsForSession: sets,
-                            input: input,
-                          ),
-                        ),
-                        onEditSet: (set) => showEditWorkoutSetDialog(
-                          context,
-                          ref,
-                          set,
-                          onChanged: () =>
-                              ref.invalidate(sessionSetsProvider(session.id)),
-                        ),
+                            sets: machineSets,
+                            history: historyAsync.maybeWhen(
+                              data: (history) => history,
+                              orElse: () => const [],
+                            ),
+                            currentSessionId: session.id,
+                            onConfirmSet: (setNumber, input) => _confirmSet(
+                              ref: ref,
+                              machine: machine,
+                              existingSets: machineSets,
+                              setNumber: setNumber,
+                              input: input,
+                            ),
+                            onDeleteSet: (setId) => _deleteSet(
+                              ref: ref,
+                              machineId: machine.id,
+                              setId: setId,
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(height: 16),
                     ],
@@ -142,26 +151,72 @@ class LogActiveView extends ConsumerWidget {
     );
   }
 
-  WorkoutSet _buildSet({
+  Future<void> _confirmSet({
+    required WidgetRef ref,
     required Machine machine,
-    required List<WorkoutSet> existingSetsForSession,
+    required List<WorkoutSet> existingSets,
+    required int setNumber,
     required LogSetInput input,
-  }) {
-    final existingForMachine = existingSetsForSession.where(
-      (s) => s.machineId == machine.id,
-    );
-    return WorkoutSet(
-      id: 0, // ignored on insert — see WorkoutRepository.logSet contract.
-      loggedAt: DateTime.now(),
-      machineId: machine.id,
-      machineName: machine.name,
-      sessionId: session.id,
-      setNumber: existingForMachine.length + 1,
-      weight: input.weight,
-      reps: input.reps,
-      incline: input.incline,
-      speed: input.speed,
-      durationMinutes: input.durationMinutes,
-    );
+  }) async {
+    final repository = ref.read(workoutRepositoryProvider);
+    WorkoutSet? existing;
+    for (final set in existingSets) {
+      if (set.setNumber == setNumber) {
+        existing = set;
+        break;
+      }
+    }
+
+    if (existing != null) {
+      await repository.updateSet(
+        WorkoutSet(
+          id: existing.id,
+          loggedAt: existing.loggedAt,
+          machineId: machine.id,
+          machineName: machine.name,
+          sessionId: session.id,
+          setNumber: setNumber,
+          machineOrder: existing.machineOrder,
+          weight: input.weight,
+          reps: input.reps,
+          unit: existing.unit,
+          incline: input.incline,
+          speed: input.speed,
+          durationMinutes: input.durationMinutes,
+          seatPosition: existing.seatPosition,
+          restSeconds: existing.restSeconds,
+          notes: existing.notes,
+        ),
+      );
+    } else {
+      await repository.logSet(
+        WorkoutSet(
+          id: 0, // ignored on insert — see WorkoutRepository.logSet contract.
+          loggedAt: DateTime.now(),
+          machineId: machine.id,
+          machineName: machine.name,
+          sessionId: session.id,
+          setNumber: setNumber,
+          weight: input.weight,
+          reps: input.reps,
+          incline: input.incline,
+          speed: input.speed,
+          durationMinutes: input.durationMinutes,
+        ),
+      );
+    }
+
+    ref.invalidate(sessionSetsProvider(session.id));
+    ref.invalidate(setsForMachineProvider(machine.id));
+  }
+
+  Future<void> _deleteSet({
+    required WidgetRef ref,
+    required int machineId,
+    required int setId,
+  }) async {
+    await ref.read(workoutRepositoryProvider).deleteSet(setId);
+    ref.invalidate(sessionSetsProvider(session.id));
+    ref.invalidate(setsForMachineProvider(machineId));
   }
 }

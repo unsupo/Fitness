@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/machine.dart';
 import '../../domain/entities/workout_session.dart';
-import '../../domain/entities/workout_set.dart';
-import '../controllers/log_providers.dart';
 import '../controllers/workout_repository_provider.dart';
 import '../widgets/log_active_view.dart';
 import '../widgets/log_add_exercise_sheet.dart';
@@ -32,14 +30,16 @@ class _LogTabState extends ConsumerState<LogTab> {
   WorkoutSession? _activeSession;
   final List<Machine> _activeMachines = [];
 
-  Future<void> _startWorkout() async {
+  Future<void> _startWorkout({List<Machine> seedMachines = const []}) async {
     final session = await ref
         .read(workoutRepositoryProvider)
         .startSession(DateTime.now());
     if (!mounted) return;
     setState(() {
       _activeSession = session;
-      _activeMachines.clear();
+      _activeMachines
+        ..clear()
+        ..addAll(seedMachines);
     });
   }
 
@@ -66,23 +66,21 @@ class _LogTabState extends ConsumerState<LogTab> {
     if (selected != null) _addMachine(selected);
   }
 
-  Future<void> _logSet(WorkoutSet draft) async {
-    await ref.read(workoutRepositoryProvider).logSet(draft);
-    ref.invalidate(sessionSetsProvider(draft.sessionId));
-  }
-
   @override
   Widget build(BuildContext context) {
     final session = _activeSession;
     if (session == null) {
-      return LogIdleView(onStartWorkout: _startWorkout);
+      return LogIdleView(
+        onStartWorkout: _startWorkout,
+        onRepeatWorkout: (machines) =>
+            _startWorkout(seedMachines: machines),
+      );
     }
     return LogActiveView(
       session: session,
       machines: _activeMachines,
       onFinish: _finishWorkout,
       onAddExercise: _openAddExerciseSheet,
-      onLogSet: (draft) => _logSet(draft),
     );
   }
 }

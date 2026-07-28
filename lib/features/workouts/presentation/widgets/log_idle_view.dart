@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../domain/entities/machine.dart';
 import '../controllers/log_providers.dart';
 import '../controllers/workout_repository_provider.dart';
 import 'log_last_workout_card.dart';
@@ -11,9 +12,17 @@ import 'log_last_workout_card.dart';
 /// action buttons (see `edit_weight_goal_dialog.dart`'s button styling
 /// pattern), using [AppColors.accentOrange].
 class LogIdleView extends ConsumerWidget {
-  const LogIdleView({super.key, required this.onStartWorkout});
+  const LogIdleView({
+    super.key,
+    required this.onStartWorkout,
+    required this.onRepeatWorkout,
+  });
 
   final Future<void> Function() onStartWorkout;
+
+  /// "Repeat this workout" — starts a session pre-loaded with the given
+  /// machines (see docs/features/workouts-log-redesign.md).
+  final Future<void> Function(List<Machine> machines) onRepeatWorkout;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -30,7 +39,7 @@ class LogIdleView extends ConsumerWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           children: [
-            const LogLastWorkoutCard(),
+            LogLastWorkoutCard(onRepeat: onRepeatWorkout),
             const SizedBox(height: 24),
             FilledButton(
               key: const Key('start-workout-button'),
