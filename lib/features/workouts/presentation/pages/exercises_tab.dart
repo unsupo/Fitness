@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/machine.dart';
-import '../controllers/exercises_providers.dart';
+import '../controllers/workout_repository_provider.dart';
 
 /// Strong's "Exercises" tab: a searchable, muscle-group-grouped machine
 /// library. Tapping a machine opens `ExerciseDetailPage` via
@@ -46,13 +46,17 @@ class _ExercisesTabState extends ConsumerState<ExercisesTab> {
             ),
             const SizedBox(height: 16),
             Expanded(
-              child: machinesAsync.when(
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
-                error: (error, stackTrace) =>
-                    Center(child: Text('Could not load exercises: $error')),
-                data: (machines) =>
-                    _ExercisesList(machines: machines, query: _query),
+              child: RefreshIndicator(
+                onRefresh: () =>
+                    Future.wait([ref.refresh(machinesProvider.future)]),
+                child: machinesAsync.when(
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (error, stackTrace) =>
+                      Center(child: Text('Could not load exercises: $error')),
+                  data: (machines) =>
+                      _ExercisesList(machines: machines, query: _query),
+                ),
               ),
             ),
           ],
@@ -71,7 +75,10 @@ class _ExercisesList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (machines.isEmpty) {
-      return const _EmptyExercises();
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: const [_EmptyExercises()],
+      );
     }
 
     final needle = query.trim().toLowerCase();
@@ -85,11 +92,19 @@ class _ExercisesList extends StatelessWidget {
           }).toList();
 
     if (filtered.isEmpty) {
-      return const Center(
-        child: Text(
-          'No exercises match your search',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: const [
+          Padding(
+            padding: EdgeInsets.only(top: 64),
+            child: Center(
+              child: Text(
+                'No exercises match your search',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+          ),
+        ],
       );
     }
 
@@ -104,6 +119,7 @@ class _ExercisesList extends StatelessWidget {
     final groupNames = grouped.keys.toList();
 
     return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
       itemCount: groupNames.length,
       separatorBuilder: (context, index) => const SizedBox(height: 16),
       itemBuilder: (context, index) {

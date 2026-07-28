@@ -79,5 +79,31 @@ void main() {
 
       expect(find.text('Session 1'), findsOneWidget);
     });
+
+    testWidgets('pulling to refresh re-fetches the session history', (
+      tester,
+    ) async {
+      final fake = FakeWorkoutRepository();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [workoutRepositoryProvider.overrideWithValue(fake)],
+          child: const MaterialApp(home: HistoryTab()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final callsBeforeRefresh = fake.getSessionHistoryCallCount;
+      expect(callsBeforeRefresh, greaterThan(0));
+
+      await tester.fling(
+        find.byType(ListView),
+        const Offset(0, 300),
+        1000,
+      );
+      await tester.pumpAndSettle();
+
+      expect(fake.getSessionHistoryCallCount, greaterThan(callsBeforeRefresh));
+    });
   });
 }

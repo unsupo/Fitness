@@ -54,5 +54,29 @@ void main() {
       expect(find.textContaining('12'), findsOneWidget);
       expect(find.textContaining('5.5'), findsOneWidget);
     });
+
+    testWidgets('pulling to refresh re-fetches this session\'s sets', (
+      tester,
+    ) async {
+      final fake = FakeWorkoutRepository();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [workoutRepositoryProvider.overrideWithValue(fake)],
+          child: const MaterialApp(
+            home: WorkoutSessionDetailPage(sessionId: 1),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final callsBefore = fake.getSetsForSessionCallCounts[1] ?? 0;
+      expect(callsBefore, greaterThan(0));
+
+      await tester.fling(find.byType(ListView), const Offset(0, 300), 1000);
+      await tester.pumpAndSettle();
+
+      expect(fake.getSetsForSessionCallCounts[1], greaterThan(callsBefore));
+    });
   });
 }

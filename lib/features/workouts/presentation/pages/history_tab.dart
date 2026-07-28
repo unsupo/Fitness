@@ -23,13 +23,19 @@ class HistoryTab extends ConsumerWidget {
 
     return Scaffold(
       body: SafeArea(
-        child: sessionsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stackTrace) =>
-              Center(child: Text('Could not load workout history: $error')),
-          data: (sessions) => sessions.isEmpty
-              ? const _EmptyHistory()
-              : _HistoryList(sessions: sessions),
+        child: RefreshIndicator(
+          onRefresh: () async {
+            await Future.wait([ref.refresh(sessionHistoryProvider.future)]);
+            ref.invalidate(setsForSessionProvider);
+          },
+          child: sessionsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, stackTrace) =>
+                Center(child: Text('Could not load workout history: $error')),
+            data: (sessions) => sessions.isEmpty
+                ? const _EmptyHistory()
+                : _HistoryList(sessions: sessions),
+          ),
         ),
       ),
     );

@@ -76,5 +76,21 @@ void main() {
 
       expect(find.text('No exercises yet'), findsOneWidget);
     });
+
+    testWidgets('pulling to refresh re-fetches the machine list', (
+      tester,
+    ) async {
+      final fake = FakeWorkoutRepository(machines: _fixtureMachines);
+
+      await _pumpTab(tester, fake);
+
+      final callsBefore = fake.getMachinesCallCount;
+      expect(callsBefore, greaterThan(0));
+
+      await tester.fling(find.byType(ListView), const Offset(0, 300), 1000);
+      await tester.pumpAndSettle();
+
+      expect(fake.getMachinesCallCount, greaterThan(callsBefore));
+    });
   });
 }

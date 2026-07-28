@@ -134,22 +134,50 @@ class FakeWorkoutRepository implements WorkoutRepository {
   /// Records the id passed to the last `deleteSet` call.
   int? lastDeleteSetCall;
 
-  @override
-  Future<List<Machine>> getMachines() async => machines;
+  /// Call counters for the read methods — used by pull-to-refresh /
+  /// resume-refresh tests to assert a re-fetch actually happened, not just
+  /// that the initial build rendered fixture data.
+  int getMachinesCallCount = 0;
+  int getLastSessionCallCount = 0;
+  int getSessionHistoryCallCount = 0;
+  final Map<int, int> getSetsForSessionCallCounts = {};
+  final Map<int, int> getSetsForMachineCallCounts = {};
 
   @override
-  Future<WorkoutSession?> getLastSession() async =>
-      sessions.isEmpty ? null : sessions.first;
+  Future<List<Machine>> getMachines() async {
+    getMachinesCallCount++;
+    return machines;
+  }
 
   @override
-  Future<List<WorkoutSession>> getSessionHistory() async => sessions;
+  Future<WorkoutSession?> getLastSession() async {
+    getLastSessionCallCount++;
+    return sessions.isEmpty ? null : sessions.first;
+  }
 
   @override
-  Future<List<WorkoutSet>> getSetsForSession(int sessionId) async =>
-      setsBySession[sessionId] ?? const [];
+  Future<List<WorkoutSession>> getSessionHistory() async {
+    getSessionHistoryCallCount++;
+    return sessions;
+  }
+
+  @override
+  Future<List<WorkoutSet>> getSetsForSession(int sessionId) async {
+    getSetsForSessionCallCounts.update(
+      sessionId,
+      (n) => n + 1,
+      ifAbsent: () => 1,
+    );
+    return setsBySession[sessionId] ?? const [];
+  }
 
   @override
   Future<List<WorkoutSet>> getSetsForMachine(int machineId) async {
+    getSetsForMachineCallCounts.update(
+      machineId,
+      (n) => n + 1,
+      ifAbsent: () => 1,
+    );
     return [
       for (final sets in setsBySession.values)
         for (final set in sets)

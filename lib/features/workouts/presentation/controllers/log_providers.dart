@@ -1,14 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../domain/entities/machine.dart';
 import '../../domain/entities/workout_session.dart';
 import '../../domain/entities/workout_set.dart';
 import 'workout_repository_provider.dart';
-
-/// All machines in the library, for the Log tab's "Add Exercise" picker.
-final machinesProvider = FutureProvider<List<Machine>>((ref) {
-  return ref.watch(workoutRepositoryProvider).getMachines();
-});
 
 /// The most recently completed session, for the Log tab's idle-state
 /// "last workout" summary card. Null when there's no workout history yet.

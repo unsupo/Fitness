@@ -149,5 +149,59 @@ void main() {
       expect(find.text('Start Workout'), findsOneWidget);
       expect(find.text('Finish Workout'), findsNothing);
     });
+
+    testWidgets(
+      'idle state: pulling to refresh re-fetches the last session',
+      (tester) async {
+        final fake = FakeWorkoutRepository();
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [workoutRepositoryProvider.overrideWithValue(fake)],
+            child: const MaterialApp(home: Scaffold(body: LogTab())),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final callsBefore = fake.getLastSessionCallCount;
+        expect(callsBefore, greaterThan(0));
+
+        await tester.fling(find.byType(ListView), const Offset(0, 300), 1000);
+        await tester.pumpAndSettle();
+
+        expect(fake.getLastSessionCallCount, greaterThan(callsBefore));
+      },
+    );
+
+    testWidgets(
+      'active state: pulling to refresh re-fetches this session\'s sets',
+      (tester) async {
+        final fake = FakeWorkoutRepository();
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [workoutRepositoryProvider.overrideWithValue(fake)],
+            child: const MaterialApp(home: Scaffold(body: LogTab())),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Start Workout'));
+        await tester.pumpAndSettle();
+        final startedSession = fake.sessions.first;
+
+        final callsBefore =
+            fake.getSetsForSessionCallCounts[startedSession.id] ?? 0;
+        expect(callsBefore, greaterThan(0));
+
+        await tester.fling(find.byType(ListView), const Offset(0, 300), 1000);
+        await tester.pumpAndSettle();
+
+        expect(
+          fake.getSetsForSessionCallCounts[startedSession.id],
+          greaterThan(callsBefore),
+        );
+      },
+    );
   });
 }

@@ -111,5 +111,28 @@ void main() {
       expect(find.text('No PR yet'), findsOneWidget);
       expect(find.text('Not logged yet'), findsOneWidget);
     });
+
+    testWidgets('pulling to refresh re-fetches this machine\'s set history', (
+      tester,
+    ) async {
+      final fake = FakeWorkoutRepository(
+        machines: _machines,
+        setsBySession: {
+          10: [_fixtureSetsByMachine[1]![0]],
+          11: [_fixtureSetsByMachine[1]![1]],
+          12: [_fixtureSetsByMachine[1]![2]],
+        },
+      );
+
+      await _pumpDetail(tester, fake);
+
+      final callsBefore = fake.getSetsForMachineCallCounts[1] ?? 0;
+      expect(callsBefore, greaterThan(0));
+
+      await tester.fling(find.byType(ListView), const Offset(0, 300), 1000);
+      await tester.pumpAndSettle();
+
+      expect(fake.getSetsForMachineCallCounts[1], greaterThan(callsBefore));
+    });
   });
 }

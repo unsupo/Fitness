@@ -74,57 +74,66 @@ class LogActiveView extends ConsumerWidget {
             ),
           ),
           Expanded(
-            child: setsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stackTrace) =>
-                  Center(child: Text('Could not load sets: $error')),
-              data: (sets) => ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  if (machines.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 16),
-                      child: Text(
-                        'Add an exercise to get started.',
-                        style: TextStyle(color: AppColors.textSecondary),
-                      ),
-                    ),
-                  for (final machine in machines) ...[
-                    LogExerciseCard(
-                      machine: machine,
-                      sets:
-                          sets.where((s) => s.machineId == machine.id).toList()
-                            ..sort(
-                              (a, b) => a.setNumber.compareTo(b.setNumber),
-                            ),
-                      onAddSet: (input) => onLogSet(
-                        _buildSet(
-                          machine: machine,
-                          existingSetsForSession: sets,
-                          input: input,
+            child: RefreshIndicator(
+              onRefresh: () => Future.wait([
+                ref.refresh(sessionSetsProvider(session.id).future),
+              ]),
+              child: setsAsync.when(
+                loading: () =>
+                    const Center(child: CircularProgressIndicator()),
+                error: (error, stackTrace) =>
+                    Center(child: Text('Could not load sets: $error')),
+                data: (sets) => ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    if (machines.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          'Add an exercise to get started.',
+                          style: TextStyle(color: AppColors.textSecondary),
                         ),
                       ),
-                      onEditSet: (set) => showEditWorkoutSetDialog(
-                        context,
-                        ref,
-                        set,
-                        onChanged: () =>
-                            ref.invalidate(sessionSetsProvider(session.id)),
+                    for (final machine in machines) ...[
+                      LogExerciseCard(
+                        machine: machine,
+                        sets:
+                            sets
+                                .where((s) => s.machineId == machine.id)
+                                .toList()
+                              ..sort(
+                                (a, b) => a.setNumber.compareTo(b.setNumber),
+                              ),
+                        onAddSet: (input) => onLogSet(
+                          _buildSet(
+                            machine: machine,
+                            existingSetsForSession: sets,
+                            input: input,
+                          ),
+                        ),
+                        onEditSet: (set) => showEditWorkoutSetDialog(
+                          context,
+                          ref,
+                          set,
+                          onChanged: () =>
+                              ref.invalidate(sessionSetsProvider(session.id)),
+                        ),
                       ),
+                      const SizedBox(height: 16),
+                    ],
+                    FilledButton.icon(
+                      key: const Key('add-exercise-button'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.accentOrange,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: onAddExercise,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Exercise'),
                     ),
-                    const SizedBox(height: 16),
                   ],
-                  FilledButton.icon(
-                    key: const Key('add-exercise-button'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.accentOrange,
-                      foregroundColor: Colors.white,
-                    ),
-                    onPressed: onAddExercise,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Exercise'),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

@@ -8,6 +8,7 @@ import '../../domain/entities/machine.dart';
 import '../../domain/entities/workout_set.dart';
 import '../../domain/use_cases/compute_personal_record.dart';
 import '../controllers/exercises_providers.dart';
+import '../controllers/workout_repository_provider.dart';
 import '../widgets/edit_workout_set_dialog.dart';
 
 /// One machine's detail page: a "Personal Record" callout (max weight, via
@@ -41,12 +42,18 @@ class ExerciseDetailPage extends ConsumerWidget {
         title: Text(title),
       ),
       body: SafeArea(
-        child: setsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stackTrace) =>
-              Center(child: Text('Could not load history: $error')),
-          data: (sets) =>
-              _ExerciseDetailBody(machineId: machineId, sets: sets),
+        child: RefreshIndicator(
+          onRefresh: () => Future.wait([
+            ref.refresh(machinesProvider.future),
+            ref.refresh(setsForMachineProvider(machineId).future),
+          ]),
+          child: setsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, stackTrace) =>
+                Center(child: Text('Could not load history: $error')),
+            data: (sets) =>
+                _ExerciseDetailBody(machineId: machineId, sets: sets),
+          ),
         ),
       ),
     );
@@ -73,6 +80,7 @@ class _ExerciseDetailBody extends ConsumerWidget {
       ..sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
         SectionCard(

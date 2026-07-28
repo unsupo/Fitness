@@ -4,6 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/analytics/presentation/controllers/analytics_providers.dart';
 import '../features/diary/presentation/controllers/diary_providers.dart';
 import '../features/recipes/presentation/controllers/recipes_providers.dart';
+import '../features/workouts/presentation/controllers/exercises_providers.dart';
+import '../features/workouts/presentation/controllers/history_providers.dart';
+import '../features/workouts/presentation/controllers/log_providers.dart';
+import '../features/workouts/presentation/controllers/workout_repository_provider.dart';
 
 /// Invalidates the app's cached data whenever the app returns to the
 /// foreground (e.g. the user switches back from another app, or unlocks
@@ -51,6 +55,12 @@ class _AppLifecycleRefresherState extends ConsumerState<AppLifecycleRefresher>
       ref.invalidate(calorieGoalProvider);
       ref.invalidate(userProfileProvider);
       ref.invalidate(recipesListProvider);
+      ref.invalidate(machinesProvider);
+      ref.invalidate(lastSessionProvider);
+      ref.invalidate(sessionSetsProvider);
+      ref.invalidate(sessionHistoryProvider);
+      ref.invalidate(setsForSessionProvider);
+      ref.invalidate(setsForMachineProvider);
     }
   }
 

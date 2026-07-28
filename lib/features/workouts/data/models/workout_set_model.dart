@@ -1,4 +1,5 @@
-import 'package:arndt_fitness/core/network/supabase_json.dart';
+import 'package:arndt_fitness/core/network/supabase_json.dart'
+    show parseSupabaseNum, parseSupabaseTimestamp;
 import 'package:arndt_fitness/features/workouts/domain/entities/workout_set.dart';
 
 double? _parseNullableNum(Object? value) =>
@@ -53,7 +54,7 @@ class WorkoutSetModel {
 
     return WorkoutSetModel(
       id: json['id'] as int,
-      loggedAt: DateTime.parse(json['logged_at'] as String),
+      loggedAt: parseSupabaseTimestamp(json['logged_at'] as String),
       machineId: json['machine_id'] as int,
       machineName: machine['name'] as String,
       sessionId: json['session_id'] as int,

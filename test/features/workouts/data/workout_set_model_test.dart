@@ -29,7 +29,10 @@ void main() {
       final set = WorkoutSetModel.fromJson(json).toEntity();
 
       expect(set.id, 101);
-      expect(set.loggedAt, DateTime.parse('2026-07-20T14:05:00Z'));
+      // logged_at arrives as a UTC instant; it must be converted to local
+      // time here (see the dedicated toLocal() test below), so assert the
+      // invariant rather than a raw UTC-vs-UTC equality.
+      expect(set.loggedAt.isUtc, isFalse);
       expect(set.machineId, 7);
       expect(set.machineName, 'Chest Press');
       expect(set.sessionId, 4);
@@ -42,6 +45,36 @@ void main() {
       expect(set.speed, isNull);
       expect(set.durationMinutes, isNull);
       expect(set.restSeconds, 90);
+    },
+  );
+
+  test(
+    'fromJson converts logged_at (a UTC instant) to local time, so a set '
+    'logged in the evening that crosses UTC midnight still shows under the '
+    'correct local calendar day',
+    () {
+      final json = {
+        'id': 103,
+        'logged_at': '2026-07-28T00:02:36.157162+00:00',
+        'machine_id': 6,
+        'session_id': 1,
+        'set_number': 1,
+        'machine_order': null,
+        'weight': '90',
+        'reps': 12,
+        'unit': 'lb per side',
+        'incline': null,
+        'speed': null,
+        'duration_minutes': null,
+        'seat_position': null,
+        'rest_seconds': null,
+        'notes': null,
+        'machines': {'name': 'Angled Leg Press Machine'},
+      };
+
+      final set = WorkoutSetModel.fromJson(json).toEntity();
+
+      expect(set.loggedAt.isUtc, isFalse);
     },
   );
 

@@ -45,11 +45,16 @@ class WorkoutSessionDetailPage extends ConsumerWidget {
         title: Text(title),
       ),
       body: SafeArea(
-        child: setsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stackTrace) =>
-              Center(child: Text('Could not load session: $error')),
-          data: (sets) => _SessionBody(sessionId: sessionId, sets: sets),
+        child: RefreshIndicator(
+          onRefresh: () => Future.wait([
+            ref.refresh(setsForSessionProvider(sessionId).future),
+          ]),
+          child: setsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, stackTrace) =>
+                Center(child: Text('Could not load session: $error')),
+            data: (sets) => _SessionBody(sessionId: sessionId, sets: sets),
+          ),
         ),
       ),
     );
@@ -67,15 +72,24 @@ class _SessionBody extends ConsumerWidget {
     final groups = groupSetsByMachine(sets);
 
     if (groups.isEmpty) {
-      return const Center(
-        child: Text(
-          'No sets logged for this session.',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: const [
+          Padding(
+            padding: EdgeInsets.only(top: 64),
+            child: Center(
+              child: Text(
+                'No sets logged for this session.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+          ),
+        ],
       );
     }
 
     return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: groups.length,
       separatorBuilder: (context, index) => const SizedBox(height: 12),
