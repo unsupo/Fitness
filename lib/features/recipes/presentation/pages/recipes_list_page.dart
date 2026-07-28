@@ -1,5 +1,6 @@
 import 'package:arndt_fitness/core/network/supabase_tables.dart';
 import 'package:arndt_fitness/core/theme/app_theme.dart';
+import 'package:arndt_fitness/core/widgets/app_drawer.dart';
 import 'package:arndt_fitness/features/diary/presentation/controllers/diary_providers.dart';
 import 'package:arndt_fitness/features/recipes/domain/entities/recipe.dart';
 import 'package:arndt_fitness/features/recipes/domain/use_cases/compute_recipe_totals.dart';
@@ -21,6 +22,7 @@ class RecipesListPage extends ConsumerWidget {
     final recipesAsync = ref.watch(recipesListProvider);
 
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
         leading: Navigator.of(context).canPop()
             ? IconButton(

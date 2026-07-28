@@ -32,29 +32,33 @@ class MealSection extends ConsumerWidget {
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           for (final entry in entries)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: FoodThumbnail(imageUrl: entry.imageUrl, size: 48),
-              title: Text(entry.foodName),
-              subtitle: Text(
-                '${entry.calories.round()} calories · '
-                '${formatQuantity(entry)} · '
-                '${DateFormat('h:mm a').format(entry.loggedAt)}',
+            Material(
+              type: MaterialType.transparency,
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: FoodThumbnail(imageUrl: entry.imageUrl, size: 48),
+                title: Text(entry.foodName),
+                subtitle: Text(
+                  '${entry.calories.round()} calories · '
+                  '${formatQuantity(entry)} · '
+                  '${DateFormat('h:mm a').format(entry.loggedAt)}',
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, size: 20),
+                      tooltip: 'Edit entry',
+                      onPressed: () =>
+                          showEditDiaryEntryDialog(context, ref, entry),
+                    ),
+                    if (entry.foodId != null) const Icon(Icons.chevron_right),
+                  ],
+                ),
+                onTap: entry.foodId == null
+                    ? null
+                    : () => context.push('/food-detail/${entry.foodId}'),
               ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined, size: 20),
-                    tooltip: 'Edit entry',
-                    onPressed: () => showEditDiaryEntryDialog(context, ref, entry),
-                  ),
-                  if (entry.foodId != null) const Icon(Icons.chevron_right),
-                ],
-              ),
-              onTap: entry.foodId == null
-                  ? null
-                  : () => context.push('/food-detail/${entry.foodId}'),
             ),
           const SizedBox(height: 4),
           Center(

@@ -1,4 +1,5 @@
 import 'package:arndt_fitness/core/network/supabase_tables.dart';
+import 'package:arndt_fitness/core/widgets/app_drawer.dart';
 import 'package:arndt_fitness/core/widgets/macro_ring.dart';
 import 'package:arndt_fitness/core/theme/app_theme.dart';
 import 'package:arndt_fitness/features/diary/domain/entities/daily_goals.dart';
@@ -24,8 +25,8 @@ class DiaryPage extends ConsumerWidget {
     final goalsAsync = ref.watch(dailyGoalsProvider);
 
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.menu), onPressed: () {}),
         title: const Text('Nourish'),
         actions: [
           IconButton(

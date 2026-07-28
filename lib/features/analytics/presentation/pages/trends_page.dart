@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_drawer.dart';
 import '../../domain/entities/daily_calories.dart';
 import '../../domain/entities/macro_breakdown.dart';
 import '../../domain/entities/weight_entry.dart';
@@ -33,8 +34,8 @@ class TrendsPage extends ConsumerWidget {
     final showProgress = selectedTab == 1 || selectedTab == 2;
 
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.menu), onPressed: () {}),
         title: const Text('Nourish'),
         actions: [
           if (Navigator.of(context).canPop())

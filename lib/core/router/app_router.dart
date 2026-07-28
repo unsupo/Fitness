@@ -10,6 +10,9 @@ import '../../features/recipes/presentation/pages/add_recipe_page.dart';
 import '../../features/recipes/presentation/pages/recipes_list_page.dart';
 import '../../features/scanner/presentation/pages/barcode_scanner_page.dart';
 import '../../features/scanner/presentation/pages/food_recognition_page.dart';
+import '../../features/workouts/presentation/pages/exercise_detail_page.dart';
+import '../../features/workouts/presentation/pages/workout_session_detail_page.dart';
+import '../../features/workouts/presentation/pages/workouts_shell_page.dart';
 import 'app_shell.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -72,6 +75,25 @@ final appRouter = GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) =>
           AddRecipePage(recipeToEdit: state.extra as Recipe?),
+    ),
+    GoRoute(
+      path: '/workouts',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const WorkoutsShellPage(),
+    ),
+    GoRoute(
+      path: '/workouts/session/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => WorkoutSessionDetailPage(
+        sessionId: int.parse(state.pathParameters['id']!),
+      ),
+    ),
+    GoRoute(
+      path: '/workouts/exercise/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => ExerciseDetailPage(
+        machineId: int.parse(state.pathParameters['id']!),
+      ),
     ),
   ],
 );

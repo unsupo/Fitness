@@ -13,6 +13,7 @@ import '../../features/scanner/data/repositories/supabase_food_logging_repositor
 import '../../features/scanner/domain/repositories/barcode_lookup_repository.dart';
 import '../../features/scanner/domain/repositories/food_logging_repository.dart';
 import '../../features/scanner/domain/repositories/food_recognition_repository.dart';
+import '../../features/workouts/data/repositories/supabase_workout_repository.dart';
 import '../../features/workouts/domain/repositories/workout_repository.dart';
 import 'backend.dart';
 
@@ -52,9 +53,5 @@ class SupabaseBackend implements Backend {
 
   @override
   WorkoutRepository createWorkoutRepository() =>
-      // TODO(workouts-data-agent): swap in SupabaseWorkoutRepository once
-      // the Workouts data layer lands (docs/features/workouts.md).
-      throw UnimplementedError(
-        'WorkoutRepository not wired yet — pending the Workouts data layer.',
-      );
+      SupabaseWorkoutRepository(_client);
 }

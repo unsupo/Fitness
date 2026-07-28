@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_drawer.dart';
 import '../../../analytics/domain/entities/user_profile.dart';
 import '../../../analytics/domain/use_cases/height_unit.dart';
 import '../../../analytics/domain/use_cases/weight_unit.dart';
@@ -30,8 +31,8 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.menu), onPressed: () {}),
         title: const Text('Nourish'),
       ),
       body: SafeArea(
