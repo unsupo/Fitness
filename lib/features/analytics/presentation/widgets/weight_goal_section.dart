@@ -289,6 +289,12 @@ class _ProjectionChartState extends State<_ProjectionChart> {
               }
             },
             touchTooltipData: LineTouchTooltipData(
+              // Without these, a point near an edge (e.g. the very first
+              // Actual reading) draws its tooltip centered on that point
+              // and lets it overflow past the chart's bounds instead of
+              // shifting to stay fully visible.
+              fitInsideHorizontally: true,
+              fitInsideVertically: true,
               getTooltipItems: (touchedSpots) => [
                 for (final spot in touchedSpots)
                   LineTooltipItem(

@@ -8,6 +8,7 @@ import '../../../../core/widgets/app_drawer.dart';
 import '../../domain/entities/daily_calories.dart';
 import '../../domain/entities/macro_breakdown.dart';
 import '../../domain/entities/weight_entry.dart';
+import '../../domain/use_cases/compute_weekly_average_trend.dart';
 import '../../domain/use_cases/weight_unit.dart';
 import '../controllers/analytics_providers.dart';
 import '../widgets/fullscreen_chart_page.dart';
@@ -684,6 +685,11 @@ class _WeightHistoryChartState extends State<_WeightHistoryChart> {
             }
           },
           touchTooltipData: LineTouchTooltipData(
+            // Without these, a point near an edge draws its tooltip
+            // centered on that point and lets it overflow past the
+            // chart's bounds instead of shifting to stay fully visible.
+            fitInsideHorizontally: true,
+            fitInsideVertically: true,
             getTooltipItems: (touchedSpots) => [
               for (final spot in touchedSpots)
                 LineTooltipItem(
@@ -741,6 +747,18 @@ class _WeightHistoryChartState extends State<_WeightHistoryChart> {
             color: AppColors.brandGreen,
             barWidth: 3,
             dotData: const FlDotData(show: true),
+          ),
+          // Weekly-average trend, smoothing out day-to-day noise (water
+          // weight, etc.) in the raw readings above.
+          LineChartBarData(
+            spots: [
+              for (final point in computeWeeklyAverageTrend(history))
+                FlSpot(point.x, displayWeight(point.avgWeightKg, unit: unit)),
+            ],
+            isCurved: true,
+            color: AppColors.accentOrange,
+            barWidth: 2,
+            dotData: const FlDotData(show: false),
           ),
         ],
       ),

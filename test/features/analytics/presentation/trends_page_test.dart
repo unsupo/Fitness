@@ -146,13 +146,59 @@ void main() {
 
       final lineCharts = tester.widgetList<LineChart>(find.byType(LineChart));
       final weightChart = lineCharts.first;
-      final series = weightChart.data.lineBarsData.single;
+      final series = weightChart.data.lineBarsData.first;
       final tooltipItems = weightChart.data.lineTouchData.touchTooltipData
           .getTooltipItems([LineBarSpot(series, 0, series.spots.single)]);
 
       expect(tooltipItems.single, isNotNull);
       expect(tooltipItems.single!.text, contains('Jul 19'));
       expect(tooltipItems.single!.text, contains('kg'));
+    },
+  );
+
+  testWidgets(
+    'weight chart overlays a weekly-average trend line on top of the raw '
+    'per-entry readings',
+    (tester) async {
+      final fake = FakeAnalyticsRepository(
+        weightHistory: [
+          WeightEntry(id: 1, loggedAt: DateTime(2026, 7, 1), weightKg: 91, goalType: 'lose'),
+          WeightEntry(id: 2, loggedAt: DateTime(2026, 7, 2), weightKg: 90, goalType: 'lose'),
+          WeightEntry(id: 3, loggedAt: DateTime(2026, 7, 3), weightKg: 89, goalType: 'lose'),
+          WeightEntry(id: 4, loggedAt: DateTime(2026, 7, 8), weightKg: 88, goalType: 'lose'),
+          WeightEntry(id: 5, loggedAt: DateTime(2026, 7, 9), weightKg: 87, goalType: 'lose'),
+        ],
+      );
+      await pumpTrendsPage(tester, fake);
+
+      final weightChart = tester.widgetList<LineChart>(find.byType(LineChart)).first;
+      expect(weightChart.data.lineBarsData.length, 2);
+
+      final trendSeries = weightChart.data.lineBarsData.last;
+      // Week 0 (indices 0-2): avg index 1, avg weight 90 kg.
+      // Week 1 (indices 3-4): avg index 3.5, avg weight 87.5 kg.
+      expect(trendSeries.spots.length, 2);
+      expect(trendSeries.spots[0].x, closeTo(1.0, 0.001));
+      expect(trendSeries.spots[0].y, closeTo(90, 0.01));
+      expect(trendSeries.spots[1].x, closeTo(3.5, 0.001));
+      expect(trendSeries.spots[1].y, closeTo(87.5, 0.01));
+    },
+  );
+
+  testWidgets(
+    'weight chart tooltip is configured to stay within the chart bounds, '
+    'so it doesn\'t clip off-screen for a point near the edge',
+    (tester) async {
+      final fake = FakeAnalyticsRepository(
+        weightHistory: [
+          WeightEntry(id: 1, loggedAt: DateTime(2026, 7, 19), weightKg: 113.8, goalType: 'lose'),
+        ],
+      );
+      await pumpTrendsPage(tester, fake);
+
+      final chart = tester.widgetList<LineChart>(find.byType(LineChart)).first;
+      expect(chart.data.lineTouchData.touchTooltipData.fitInsideHorizontally, isTrue);
+      expect(chart.data.lineTouchData.touchTooltipData.fitInsideVertically, isTrue);
     },
   );
 

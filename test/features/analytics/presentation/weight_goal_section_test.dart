@@ -199,6 +199,31 @@ void main() {
   );
 
   testWidgets(
+    'the tooltip is configured to stay within the chart bounds, so it '
+    'doesn\'t clip off-screen for a point near the edge',
+    (tester) async {
+      final fake = FakeAnalyticsRepository(
+        weightHistory: [
+          WeightEntry(id: 1, loggedAt: DateTime(2026, 7, 20), weightKg: 85, goalType: 'lose'),
+        ],
+        calorieGoal: 2000,
+        userProfile: const UserProfile(
+          sex: 'male',
+          age: 30,
+          heightCm: 180,
+          activityLevel: 'sedentary',
+          targetWeightKg: 80,
+        ),
+      );
+      await pump(tester, fake);
+
+      final chart = tester.widget<LineChart>(find.byType(LineChart));
+      expect(chart.data.lineTouchData.touchTooltipData.fitInsideHorizontally, isTrue);
+      expect(chart.data.lineTouchData.touchTooltipData.fitInsideVertically, isTrue);
+    },
+  );
+
+  testWidgets(
     'the actual series is painted on top of the projected series and with '
     'a larger dot, so it stays visible where the two meet at the same point',
     (tester) async {
