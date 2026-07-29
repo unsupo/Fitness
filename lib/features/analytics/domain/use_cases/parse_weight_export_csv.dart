@@ -29,7 +29,22 @@ List<({DateTime loggedAt, double weightKg})> parseWeightExportCsv(
   final results = <({DateTime loggedAt, double weightKg})>[];
 
   for (final line in lines.skip(1)) {
-    final columns = line.split(',');
+    var columns = line.split(',');
+
+    // Some exporters write the Time value as "date, time" with an
+    // unquoted comma inside it (e.g. "7/19/2026, 9:40 PM"). A naive split
+    // breaks that single field into two, shifting every column after it —
+    // silently dropping every row. Detect the resulting one-extra-column
+    // row and re-join the two fragments (with a space, matching the
+    // no-comma format the date parser below expects) before proceeding.
+    if (columns.length == header.length + 1 && timeIndex < columns.length - 1) {
+      columns = [
+        ...columns.sublist(0, timeIndex),
+        '${columns[timeIndex].trim()} ${columns[timeIndex + 1].trim()}',
+        ...columns.sublist(timeIndex + 2),
+      ];
+    }
+
     if (columns.length <= timeIndex || columns.length <= weightIndex) continue;
 
     DateTime loggedAt;

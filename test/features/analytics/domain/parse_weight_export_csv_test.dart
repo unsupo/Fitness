@@ -63,6 +63,28 @@ void main() {
       expect(entries.single.loggedAt, DateTime(2026, 7, 12, 21, 47));
     });
 
+    test(
+      'handles a Time value written as "date, time" with an unquoted comma '
+      'inside it, without losing the row to a column-count mismatch',
+      () {
+        // Real export from the user's scale app: the Time column's own
+        // value contains a literal ", " between date and time (unquoted),
+        // so a naive line.split(',') breaks it into two columns and
+        // shifts every column after it — silently dropping every row.
+        const csvWithEmbeddedComma =
+            'Time,Weight,BMI,Body Fat\n'
+            '7/19/2026, 9:40 PM,250.9lb,30.6 ,27.1 %\n'
+            '7/20/2026, 10:38 PM,247.1lb,30.1 ,26.3 %\n';
+
+        final entries = parseWeightExportCsv(csvWithEmbeddedComma);
+
+        expect(entries.length, 2);
+        expect(entries.first.loggedAt, DateTime(2026, 7, 19, 21, 40));
+        expect(entries.first.weightKg, closeTo(113.806, 0.01)); // 250.9 lb
+        expect(entries.last.loggedAt, DateTime(2026, 7, 20, 22, 38));
+      },
+    );
+
     test('finds Time/Weight columns regardless of position', () {
       const reordered = 'BMI,Weight,Time\n30.2,248.2lb,7/12/2026 9:47 PM\n';
 
