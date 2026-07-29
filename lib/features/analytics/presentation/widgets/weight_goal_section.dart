@@ -12,6 +12,7 @@ import '../../domain/use_cases/project_weight_trajectory.dart';
 import '../../domain/use_cases/weight_unit.dart';
 import '../controllers/analytics_providers.dart';
 import 'edit_weight_goal_dialog.dart';
+import 'fullscreen_chart_page.dart';
 
 /// "If I keep eating at my calorie goal, when do I hit my target weight?" —
 /// a projected trajectory from the latest logged weight to
@@ -140,7 +141,12 @@ class _ProjectionBody extends StatelessWidget {
       targetWeightKg: profile.targetWeightKg!,
       tdee: tdee,
       calorieGoal: calorieGoal,
-      startDate: DateTime.now(),
+      // Anchor the projection at the same point the actual series ends
+      // (the latest weekly average's weekStart), not "now" — weekStart is
+      // often several days before today, so using DateTime.now() here left
+      // a visible gap between the last real point and the first projected
+      // one even though they're the same weight value.
+      startDate: weeklyAverages.last.weekStart,
     );
 
     if (trajectory.length == 1) {
@@ -178,84 +184,225 @@ class _ProjectionBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Projected to reach ${displayTarget.round()} $unit by '
-          '${DateFormat('MMM d, yyyy').format(target.date)}',
-          style: const TextStyle(fontWeight: FontWeight.w600),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                'Projected to reach ${displayTarget.round()} $unit by '
+                '${DateFormat('MMM d, yyyy').format(target.date)}',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            IconButton(
+              key: const Key('weight-goal-fullscreen-button'),
+              icon: const Icon(Icons.fullscreen, size: 20),
+              tooltip: 'View fullscreen',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => FullScreenChartPage(
+                    title: 'Weight Goal',
+                    chart: _ProjectionChart(
+                      actualSpots: actualSpots,
+                      projectedSpots: projectedSpots,
+                      origin: origin,
+                      maxX: maxX,
+                      labelInterval: labelInterval,
+                      displayTarget: displayTarget,
+                      unit: unit,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
-        SizedBox(
+        _ProjectionChart(
           height: 160,
-          child: LineChart(
-            LineChartData(
-              minX: 0,
-              maxX: maxX,
-              gridData: const FlGridData(show: false),
-              borderData: FlBorderData(show: false),
-              titlesData: FlTitlesData(
-                topTitles: const AxisTitles(),
-                rightTitles: const AxisTitles(),
-                leftTitles: const AxisTitles(),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    interval: labelInterval,
-                    getTitlesWidget: (value, meta) {
-                      final date = origin.add(Duration(days: value.round()));
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          DateFormat('MMM d').format(date),
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      );
-                    },
+          actualSpots: actualSpots,
+          projectedSpots: projectedSpots,
+          origin: origin,
+          maxX: maxX,
+          labelInterval: labelInterval,
+          displayTarget: displayTarget,
+          unit: unit,
+        ),
+      ],
+    );
+  }
+}
+
+/// The Weight Goal chart itself, reused both inline (small) and in the
+/// fullscreen landscape view. Stateful so a touched point's tooltip
+/// persists until the user taps elsewhere, rather than only while actively
+/// touching (fl_chart's built-in behavior, which reads as "nothing
+/// happened" on a real device — a tap is a quick down-then-up).
+class _ProjectionChart extends StatefulWidget {
+  const _ProjectionChart({
+    required this.actualSpots,
+    required this.projectedSpots,
+    required this.origin,
+    required this.maxX,
+    required this.labelInterval,
+    required this.displayTarget,
+    required this.unit,
+    this.height,
+  });
+
+  final List<FlSpot> actualSpots;
+  final List<FlSpot> projectedSpots;
+  final DateTime origin;
+  final double maxX;
+  final double labelInterval;
+  final double displayTarget;
+  final String unit;
+
+  /// A fixed chart height for the small inline card view; `null` (the
+  /// fullscreen view) fills whatever bounded space its ancestor gives it.
+  final double? height;
+
+  @override
+  State<_ProjectionChart> createState() => _ProjectionChartState();
+}
+
+class _ProjectionChartState extends State<_ProjectionChart> {
+  List<LineBarSpot> _touchedSpots = [];
+
+  @override
+  Widget build(BuildContext context) {
+    final chart = LineChart(
+        LineChartData(
+          minX: 0,
+          maxX: widget.maxX,
+          gridData: const FlGridData(show: false),
+          borderData: FlBorderData(show: false),
+          lineTouchData: LineTouchData(
+            // We manage the tooltip's visibility ourselves (via
+            // showingTooltipIndicators below) so it persists after the
+            // finger lifts, instead of fl_chart's default of hiding it the
+            // moment the touch ends.
+            handleBuiltInTouches: false,
+            touchCallback: (event, response) {
+              if (event is FlTapUpEvent && response?.lineBarSpots != null) {
+                setState(() => _touchedSpots = response!.lineBarSpots!);
+              }
+            },
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipItems: (touchedSpots) => [
+                for (final spot in touchedSpots)
+                  LineTooltipItem(
+                    '${spot.barIndex == 0 ? 'Actual' : 'Projected'}\n'
+                    '${DateFormat('MMM d, yyyy').format(widget.origin.add(Duration(days: spot.x.round())))}\n'
+                    '${spot.y.toStringAsFixed(1)} ${widget.unit}',
+                    const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-              ),
-              extraLinesData: ExtraLinesData(
-                horizontalLines: [
-                  HorizontalLine(
-                    y: displayTarget,
-                    color: AppColors.accentOrange,
-                    strokeWidth: 1.5,
-                    dashArray: [6, 4],
-                  ),
-                ],
-              ),
-              lineBarsData: [
-                LineChartBarData(
-                  spots: actualSpots,
-                  isCurved: false,
-                  color: AppColors.accentOrange,
-                  barWidth: 2.5,
-                  dotData: const FlDotData(show: true),
-                ),
-                LineChartBarData(
-                  spots: projectedSpots,
-                  isCurved: false,
-                  dashArray: [6, 4],
-                  color: AppColors.brandGreen,
-                  barWidth: 2.5,
-                  dotData: const FlDotData(show: true),
-                ),
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 8),
-        const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _LegendDot(color: AppColors.accentOrange, label: 'Actual (weekly avg)'),
-            SizedBox(width: 16),
-            _LegendDot(color: AppColors.brandGreen, label: 'Projected'),
+          showingTooltipIndicators: _touchedSpots.isEmpty
+              ? []
+              : [ShowingTooltipIndicators(_touchedSpots)],
+          titlesData: FlTitlesData(
+            topTitles: const AxisTitles(),
+            rightTitles: const AxisTitles(),
+            leftTitles: const AxisTitles(),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                interval: widget.labelInterval,
+                getTitlesWidget: (value, meta) {
+                  final date = widget.origin.add(Duration(days: value.round()));
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      DateFormat('MMM d').format(date),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          extraLinesData: ExtraLinesData(
+            horizontalLines: [
+              HorizontalLine(
+                y: widget.displayTarget,
+                color: AppColors.accentOrange,
+                strokeWidth: 1.5,
+                dashArray: [6, 4],
+              ),
+            ],
+          ),
+          lineBarsData: [
+            // Projected (green) first, Actual (orange) last — fl_chart
+            // paints later entries on top, and the two series share their
+            // boundary point exactly (by design, see the projection's
+            // startDate above), so Actual must be on top there or its dot
+            // is invisible, hidden under Projected's.
+            LineChartBarData(
+              spots: widget.projectedSpots,
+              isCurved: false,
+              dashArray: [6, 4],
+              color: AppColors.brandGreen,
+              barWidth: 2.5,
+              dotData: const FlDotData(show: true),
+            ),
+            LineChartBarData(
+              spots: widget.actualSpots,
+              isCurved: false,
+              color: AppColors.accentOrange,
+              barWidth: 2.5,
+              // Slightly larger than the projected series' default dot so
+              // it's visibly distinct even at their shared boundary point.
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, bar, index) =>
+                    FlDotCirclePainter(
+                      radius: 5,
+                      color: AppColors.accentOrange,
+                      strokeWidth: 0,
+                    ),
+              ),
+            ),
           ],
         ),
+      );
+
+    const legend = Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _LegendDot(color: AppColors.accentOrange, label: 'Actual (weekly avg)'),
+        SizedBox(width: 16),
+        _LegendDot(color: AppColors.brandGreen, label: 'Projected'),
       ],
+    );
+
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => setState(() => _touchedSpots = []),
+      child: widget.height != null
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(height: widget.height, child: chart),
+                const SizedBox(height: 8),
+                legend,
+              ],
+            )
+          : Column(
+              children: [
+                Expanded(child: chart),
+                const SizedBox(height: 8),
+                legend,
+              ],
+            ),
     );
   }
 }

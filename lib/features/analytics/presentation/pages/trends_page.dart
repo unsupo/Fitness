@@ -10,6 +10,7 @@ import '../../domain/entities/macro_breakdown.dart';
 import '../../domain/entities/weight_entry.dart';
 import '../../domain/use_cases/weight_unit.dart';
 import '../controllers/analytics_providers.dart';
+import '../widgets/fullscreen_chart_page.dart';
 import '../widgets/import_weight_csv.dart';
 import '../widgets/log_weight_dialog.dart';
 import '../widgets/weight_goal_section.dart';
@@ -429,55 +430,74 @@ class _LegendRow extends StatelessWidget {
   }
 }
 
-class _WeightSection extends ConsumerWidget {
+class _WeightSection extends ConsumerStatefulWidget {
   const _WeightSection();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_WeightSection> createState() => _WeightSectionState();
+}
+
+class _WeightSectionState extends ConsumerState<_WeightSection> {
+  // Lets a tap anywhere in this section (e.g. this "Weight" heading, not
+  // just the chart itself) dismiss a touched point's tooltip.
+  final _chartKey = GlobalKey<_WeightHistoryChartState>();
+
+  @override
+  Widget build(BuildContext context) {
     final historyAsync = ref.watch(weightHistoryProvider);
 
     return SectionCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Weight',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              IconButton(
-                icon: const Icon(Icons.upload_file_outlined, size: 20),
-                tooltip: 'Import weigh-ins from CSV',
-                onPressed: () => importWeightCsv(context, ref),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          historyAsync.when(
-            data: (history) => _WeightBody(history: history),
-            loading: () => const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: CircularProgressIndicator()),
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => _chartKey.currentState?.clear(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Weight',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.upload_file_outlined, size: 20),
+                  tooltip: 'Import weigh-ins from CSV',
+                  onPressed: () => importWeightCsv(context, ref),
+                ),
+              ],
             ),
-            error: (error, _) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: Text('Error: $error')),
+            const SizedBox(height: 12),
+            historyAsync.when(
+              data: (history) =>
+                  _WeightBody(history: history, chartKey: _chartKey),
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (error, _) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: Text('Error: $error')),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
 class _WeightBody extends ConsumerStatefulWidget {
-  const _WeightBody({required this.history});
+  const _WeightBody({required this.history, required this.chartKey});
 
   final List<WeightEntry> history;
+
+  /// Owned by the ancestor `_WeightSectionState` so a tap anywhere in that
+  /// wider section (not just this chart's own bounds) can dismiss a
+  /// touched point's tooltip.
+  final GlobalKey<_WeightHistoryChartState> chartKey;
 
   @override
   ConsumerState<_WeightBody> createState() => _WeightBodyState();
@@ -576,55 +596,27 @@ class _WeightBodyState extends ConsumerState<_WeightBody> {
             ),
           ),
         const SizedBox(height: 16),
-        SizedBox(
-          height: 160,
-          child: LineChart(
-            LineChartData(
-              gridData: const FlGridData(show: false),
-              borderData: FlBorderData(show: false),
-              titlesData: FlTitlesData(
-                topTitles: const AxisTitles(),
-                rightTitles: const AxisTitles(),
-                leftTitles: const AxisTitles(),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    getTitlesWidget: (value, meta) {
-                      final i = value.toInt();
-                      if (i < 0 || i >= history.length) {
-                        return const SizedBox.shrink();
-                      }
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          DateFormat('MMM').format(history[i].loggedAt),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: IconButton(
+            key: const Key('weight-history-fullscreen-button'),
+            icon: const Icon(Icons.fullscreen, size: 20),
+            tooltip: 'View fullscreen',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => FullScreenChartPage(
+                  title: 'Weight',
+                  chart: _WeightHistoryChart(history: history, unit: unit),
                 ),
               ),
-              lineBarsData: [
-                LineChartBarData(
-                  spots: [
-                    for (var i = 0; i < history.length; i++)
-                      FlSpot(
-                        i.toDouble(),
-                        displayWeight(history[i].weightKg, unit: unit),
-                      ),
-                  ],
-                  isCurved: true,
-                  color: AppColors.brandGreen,
-                  barWidth: 3,
-                  dotData: const FlDotData(show: true),
-                ),
-              ],
             ),
           ),
+        ),
+        _WeightHistoryChart(
+          key: widget.chartKey,
+          history: history,
+          unit: unit,
+          height: 160,
         ),
         Align(
           alignment: Alignment.centerRight,
@@ -634,6 +626,132 @@ class _WeightBodyState extends ConsumerState<_WeightBody> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The weigh-in history chart, reused both inline (small) and in the
+/// fullscreen landscape view. Stateful so a touched point's tooltip
+/// persists until the user taps elsewhere, rather than only while actively
+/// touching (fl_chart's built-in behavior, which reads as "nothing
+/// happened" on a real device — a tap is a quick down-then-up).
+class _WeightHistoryChart extends StatefulWidget {
+  const _WeightHistoryChart({
+    super.key,
+    required this.history,
+    required this.unit,
+    this.height,
+  });
+
+  final List<WeightEntry> history;
+  final String unit;
+
+  /// A fixed chart height for the small inline card view; `null` (the
+  /// fullscreen view) fills whatever bounded space its ancestor gives it.
+  final double? height;
+
+  @override
+  State<_WeightHistoryChart> createState() => _WeightHistoryChartState();
+}
+
+class _WeightHistoryChartState extends State<_WeightHistoryChart> {
+  List<LineBarSpot> _touchedSpots = [];
+
+  /// Called by an ancestor (e.g. `_WeightSectionState`, when its wider
+  /// "tap elsewhere" area is tapped) to dismiss a shown tooltip.
+  void clear() {
+    if (_touchedSpots.isNotEmpty) setState(() => _touchedSpots = []);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final history = widget.history;
+    final unit = widget.unit;
+
+    final chart = LineChart(
+      LineChartData(
+        gridData: const FlGridData(show: false),
+        borderData: FlBorderData(show: false),
+        lineTouchData: LineTouchData(
+          // We manage the tooltip's visibility ourselves (via
+          // showingTooltipIndicators below) so it persists after the
+          // finger lifts, instead of fl_chart's default of hiding it the
+          // moment the touch ends.
+          handleBuiltInTouches: false,
+          touchCallback: (event, response) {
+            if (event is FlTapUpEvent && response?.lineBarSpots != null) {
+              setState(() => _touchedSpots = response!.lineBarSpots!);
+            }
+          },
+          touchTooltipData: LineTouchTooltipData(
+            getTooltipItems: (touchedSpots) => [
+              for (final spot in touchedSpots)
+                LineTooltipItem(
+                  '${DateFormat('MMM d, yyyy').format(history[spot.x.toInt()].loggedAt)}\n'
+                  '${spot.y.toStringAsFixed(1)} $unit',
+                  const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        showingTooltipIndicators: _touchedSpots.isEmpty
+            ? []
+            : [ShowingTooltipIndicators(_touchedSpots)],
+        titlesData: FlTitlesData(
+          topTitles: const AxisTitles(),
+          rightTitles: const AxisTitles(),
+          leftTitles: const AxisTitles(),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              // Every point's own date, not just the month — several
+              // readings within the same month previously all showed the
+              // identical "Jul" label with nothing distinguishing them.
+              // Thin out labels for longer histories so they don't overlap.
+              interval: (history.length / 5).ceil().clamp(1, 999).toDouble(),
+              getTitlesWidget: (value, meta) {
+                final i = value.toInt();
+                if (i < 0 || i >= history.length) {
+                  return const SizedBox.shrink();
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    DateFormat('M/d').format(history[i].loggedAt),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        lineBarsData: [
+          LineChartBarData(
+            spots: [
+              for (var i = 0; i < history.length; i++)
+                FlSpot(i.toDouble(), displayWeight(history[i].weightKg, unit: unit)),
+            ],
+            isCurved: true,
+            color: AppColors.brandGreen,
+            barWidth: 3,
+            dotData: const FlDotData(show: true),
+          ),
+        ],
+      ),
+    );
+
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => setState(() => _touchedSpots = []),
+      child: widget.height != null
+          ? SizedBox(height: widget.height, child: chart)
+          : chart,
     );
   }
 }
