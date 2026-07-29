@@ -603,7 +603,7 @@ class _WeightBodyState extends ConsumerState<_WeightBody> {
             key: const Key('weight-history-fullscreen-button'),
             icon: const Icon(Icons.fullscreen, size: 20),
             tooltip: 'View fullscreen',
-            onPressed: () => Navigator.of(context).push(
+            onPressed: () => Navigator.of(context, rootNavigator: true).push(
               MaterialPageRoute(
                 builder: (_) => FullScreenChartPage(
                   title: 'Weight',
