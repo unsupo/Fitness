@@ -9,6 +9,7 @@ import '../../domain/entities/daily_calories.dart';
 import '../../domain/entities/macro_breakdown.dart';
 import '../../domain/entities/weight_entry.dart';
 import '../../domain/use_cases/compute_weekly_average_trend.dart';
+import '../../domain/use_cases/format_week_range.dart';
 import '../../domain/use_cases/weight_unit.dart';
 import '../controllers/analytics_providers.dart';
 import '../widgets/fullscreen_chart_page.dart';
@@ -79,10 +80,7 @@ class _WeekHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final weekEnd = weekStart.add(const Duration(days: 6));
-    final rangeLabel = weekStart.month == weekEnd.month
-        ? '${DateFormat('MMM d').format(weekStart)}-${DateFormat('d').format(weekEnd)}'
-        : '${DateFormat('MMM d').format(weekStart)} - ${DateFormat('MMM d').format(weekEnd)}';
+    final rangeLabel = formatWeekRange(weekStart);
 
     return Column(
       children: [
@@ -462,7 +460,7 @@ class _MacroBreakdownSection extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Macro Breakdown',
+            'Macro Breakdown (${formatWeekRange(weekStart)})',
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),

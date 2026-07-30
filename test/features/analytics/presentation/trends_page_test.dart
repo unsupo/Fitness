@@ -35,11 +35,34 @@ void main() {
       await pumpTrendsPage(tester, fake);
 
       expect(find.text('Weekly Calories'), findsOneWidget);
-      expect(find.text('Macro Breakdown'), findsOneWidget);
+      expect(find.textContaining('Macro Breakdown'), findsOneWidget);
       expect(find.text('Weight'), findsOneWidget);
       // Appears in "Current Weight: ..." and again in the editable
       // weigh-in history list below the chart.
       expect(find.textContaining('80.1'), findsNWidgets(2));
+    },
+  );
+
+  testWidgets(
+    'Macro Breakdown heading shows which week it summarizes, so a '
+    'per-day dip doesn\'t read as a bug when it\'s just diluted by the '
+    'rest of the week',
+    (tester) async {
+      final fake = FakeAnalyticsRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            analyticsRepositoryProvider.overrideWithValue(fake),
+            selectedWeekStartProvider.overrideWith(
+              (ref) => DateTime(2026, 7, 20),
+            ),
+          ],
+          child: const MaterialApp(home: TrendsPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Macro Breakdown (Jul 20-26)'), findsOneWidget);
     },
   );
 
