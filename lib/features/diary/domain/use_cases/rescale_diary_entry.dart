@@ -28,6 +28,7 @@ DiaryEntry rescaleDiaryEntry(DiaryEntry entry, {required LoggedQuantity newQuant
     mealType: entry.mealType,
     foodName: entry.foodName,
     foodId: entry.foodId,
+    recipeId: entry.recipeId,
     quantity: newQuantity,
     calories: entry.calories * ratio,
     proteinG: entry.proteinG * ratio,

@@ -35,7 +35,8 @@ void main() {
     expect(rescaled.foodId, 3);
   });
 
-  test('works for recipe-based entries the same way (ratio, no food lookup)', () {
+  test('works for recipe-based entries the same way (ratio, no food lookup), '
+      'and keeps the recipeId link intact', () {
     final entry = DiaryEntry(
       id: 2,
       loggedAt: DateTime(2026, 7, 21, 18, 51),
@@ -46,12 +47,16 @@ void main() {
       proteinG: 31,
       carbsG: 15,
       fatG: 9,
+      recipeId: 7,
     );
 
     final rescaled = rescaleDiaryEntry(entry, newQuantity: const LoggedQuantity(amount: 2.0, unit: 'serving'));
 
     expect(rescaled.calories, 620);
     expect(rescaled.proteinG, 62);
+    // Must survive rescaling — otherwise editing a recipe-logged entry's
+    // quantity silently severs its "logged from this recipe" link.
+    expect(rescaled.recipeId, 7);
   });
 
   test('throws for a zero or negative new quantity', () {
