@@ -73,7 +73,7 @@ void main() {
       await pumpSection(tester, entries: [foodEntry]);
 
       expect(find.text('BBQ Pringles'), findsOneWidget);
-      expect(find.textContaining('75 calories'), findsOneWidget);
+      expect(find.textContaining('75 cal'), findsOneWidget);
       final thumbnail = tester.widget<FoodThumbnail>(find.byType(FoodThumbnail));
       expect(thumbnail.imageUrl, 'https://images.example.com/pringles.jpg');
 
@@ -81,7 +81,7 @@ void main() {
         find.byKey(const Key('entry-quantity-field-1')),
       );
       expect(qtyField.controller!.text, '0.5');
-      expect(find.text('serving'), findsOneWidget);
+      expect(find.textContaining('serving'), findsOneWidget);
     });
 
     testWidgets('tap navigates to food-detail page', (tester) async {
@@ -182,7 +182,7 @@ void main() {
       await pumpSection(tester, entries: [recipeEntry]);
 
       expect(find.text('Chicken Rice Bowl'), findsOneWidget);
-      expect(find.textContaining('460 calories'), findsOneWidget);
+      expect(find.textContaining('460 cal'), findsOneWidget);
       expect(find.text('Chicken Breast'), findsNothing);
       expect(find.text('White Rice'), findsNothing);
     });

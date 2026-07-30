@@ -18,16 +18,17 @@ import 'package:intl/intl.dart';
 
 import 'edit_diary_entry_dialog.dart';
 
-/// A `SectionCard` for one meal type: heading + one row per entry, plus a
-/// small orange "+" button that pushes the scanner.
+/// A `SectionCard` for one meal type: heading + one compact row per entry,
+/// plus a small orange "+" button that pushes the scanner.
 ///
-/// Plain food entries are a single swipeable/inline-editable row. Entries
-/// logged from a recipe render as a collapsible header (name/quantity/
-/// calories) that expands to show the recipe's own ingredients as indented
-/// sub-rows — each independently swipeable and inline-editable, mirroring
-/// the Workouts feature's set-row pattern (`LogExerciseCard`): a `Dismissible`
-/// with a trailing delete-icon background, and a small numeric field +
-/// checkmark button to confirm an edited quantity, rather than a modal.
+/// Each entry is two lines tall, same density as a plain `ListTile` — name
+/// on top, then calories/quantity/time folded into one wrapping line below
+/// (the quantity is a small inline `TextField` + checkmark, not a whole
+/// separate row, so editability doesn't cost extra height). Every entry is
+/// swipeable (`Dismissible`, drag-past-threshold like Workouts' set rows).
+/// Recipe-logged entries additionally expand (tap the name row) to show the
+/// recipe's own ingredients as indented sub-rows, each independently
+/// swipeable and inline-editable the same way.
 class MealSection extends ConsumerStatefulWidget {
   const MealSection({super.key, required this.mealType, required this.entries});
 
@@ -113,6 +114,47 @@ Widget _deleteBackground() => Container(
   child: const Icon(Icons.delete_outline, color: Colors.red),
 );
 
+/// A small, tight-fitting icon button for inline rows — a default
+/// `IconButton`'s 48x48 minimum tap target would make every row far taller
+/// than the text next to it.
+Widget _compactIconButton({
+  Key? key,
+  required IconData icon,
+  required VoidCallback onPressed,
+  Color? color,
+  double size = 18,
+  String? tooltip,
+}) {
+  return IconButton(
+    key: key,
+    icon: Icon(icon, size: size),
+    color: color,
+    tooltip: tooltip,
+    padding: EdgeInsets.zero,
+    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+    onPressed: onPressed,
+  );
+}
+
+Widget _quantityField({required Key key, required TextEditingController controller}) {
+  return SizedBox(
+    width: 34,
+    height: 26,
+    child: TextField(
+      key: key,
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      textAlign: TextAlign.center,
+      style: const TextStyle(fontSize: 13),
+      decoration: const InputDecoration(
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+        border: UnderlineInputBorder(),
+      ),
+    ),
+  );
+}
+
 class _FoodEntryTile extends ConsumerStatefulWidget {
   const _FoodEntryTile({
     super.key,
@@ -158,7 +200,7 @@ class _FoodEntryTileState extends ConsumerState<_FoodEntryTile> {
       background: _deleteBackground(),
       onDismissed: (_) => widget.onDelete(),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -168,59 +210,51 @@ class _FoodEntryTileState extends ConsumerState<_FoodEntryTile> {
                   : () => context.push('/food-detail/${entry.foodId}'),
               child: Row(
                 children: [
-                  FoodThumbnail(imageUrl: entry.imageUrl, size: 48),
-                  const SizedBox(width: 12),
+                  FoodThumbnail(imageUrl: entry.imageUrl, size: 40),
+                  const SizedBox(width: 10),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(entry.foodName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                        Text(
-                          '${entry.calories.round()} calories · '
-                          '${DateFormat('h:mm a').format(entry.loggedAt)}',
-                          style: const TextStyle(color: AppColors.textSecondary),
-                        ),
-                      ],
+                    child: Text(
+                      entry.foodName,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    tooltip: 'Edit entry',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    onPressed: () => showEditDiaryEntryDialog(context, ref, entry),
+                  ),
                   if (entry.foodId != null)
-                    const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                    const Icon(Icons.chevron_right, size: 20, color: AppColors.textSecondary),
                 ],
               ),
             ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                SizedBox(
-                  width: 48,
-                  child: TextField(
+            Padding(
+              padding: const EdgeInsets.only(left: 50, top: 2),
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    '${entry.calories.round()} cal · ',
+                    style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                  _quantityField(
                     key: Key('entry-quantity-field-${entry.id}'),
                     controller: _qtyCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 13),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                      border: OutlineInputBorder(),
-                    ),
                   ),
-                ),
-                const SizedBox(width: 6),
-                Text(entry.quantity.unit, style: const TextStyle(color: AppColors.textSecondary)),
-                IconButton(
-                  key: Key('entry-quantity-confirm-${entry.id}'),
-                  icon: const Icon(Icons.check_circle_outline, size: 20),
-                  color: AppColors.brandGreen,
-                  onPressed: _confirmQuantity,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20),
-                  tooltip: 'Edit entry',
-                  onPressed: () => showEditDiaryEntryDialog(context, ref, entry),
-                ),
-              ],
+                  Text(
+                    ' ${entry.quantity.unit} · ${DateFormat('h:mm a').format(entry.loggedAt)}  ',
+                    style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                  _compactIconButton(
+                    key: Key('entry-quantity-confirm-${entry.id}'),
+                    icon: Icons.check_circle_outline,
+                    color: AppColors.brandGreen,
+                    onPressed: _confirmQuantity,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -328,7 +362,7 @@ class _RecipeEntryTileState extends ConsumerState<_RecipeEntryTile> {
       background: _deleteBackground(),
       onDismissed: (_) => widget.onDelete(),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -338,53 +372,44 @@ class _RecipeEntryTileState extends ConsumerState<_RecipeEntryTile> {
               child: Row(
                 children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(entry.foodName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                        Text(
-                          '${entry.calories.round()} calories · '
-                          '${DateFormat('h:mm a').format(entry.loggedAt)}',
-                          style: const TextStyle(color: AppColors.textSecondary),
-                        ),
-                      ],
+                    child: Text(
+                      entry.foodName,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
                   Icon(
                     _expanded ? Icons.expand_less : Icons.expand_more,
+                    size: 20,
                     color: AppColors.textSecondary,
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                SizedBox(
-                  width: 48,
-                  child: TextField(
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    '${entry.calories.round()} cal · ',
+                    style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                  _quantityField(
                     key: Key('entry-quantity-field-${entry.id}'),
                     controller: _qtyCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 13),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                      border: OutlineInputBorder(),
-                    ),
                   ),
-                ),
-                const SizedBox(width: 6),
-                Text(entry.quantity.unit, style: const TextStyle(color: AppColors.textSecondary)),
-                IconButton(
-                  key: Key('entry-quantity-confirm-${entry.id}'),
-                  icon: const Icon(Icons.check_circle_outline, size: 20),
-                  color: AppColors.brandGreen,
-                  onPressed: _confirmQuantity,
-                ),
-              ],
+                  Text(
+                    ' ${entry.quantity.unit} · ${DateFormat('h:mm a').format(entry.loggedAt)}  ',
+                    style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                  _compactIconButton(
+                    key: Key('entry-quantity-confirm-${entry.id}'),
+                    icon: Icons.check_circle_outline,
+                    color: AppColors.brandGreen,
+                    onPressed: _confirmQuantity,
+                  ),
+                ],
+              ),
             ),
             if (_expanded)
               Consumer(
@@ -392,11 +417,11 @@ class _RecipeEntryTileState extends ConsumerState<_RecipeEntryTile> {
                   final recipesAsync = ref.watch(recipesListProvider);
                   return recipesAsync.when(
                     loading: () => const Padding(
-                      padding: EdgeInsets.only(left: 24, top: 8),
+                      padding: EdgeInsets.only(left: 16, top: 4),
                       child: LinearProgressIndicator(),
                     ),
                     error: (error, _) => Padding(
-                      padding: const EdgeInsets.only(left: 24, top: 8),
+                      padding: const EdgeInsets.only(left: 16, top: 4),
                       child: Text('Could not load ingredients: $error'),
                     ),
                     data: (recipes) {
@@ -416,7 +441,7 @@ class _RecipeEntryTileState extends ConsumerState<_RecipeEntryTile> {
                           .toList();
 
                       return Padding(
-                        padding: const EdgeInsets.only(left: 24, top: 4),
+                        padding: const EdgeInsets.only(left: 16, top: 2),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -489,38 +514,28 @@ class _IngredientRowState extends State<_IngredientRow> {
       background: _deleteBackground(),
       onDismissed: (_) => widget.onRemove(),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(
           children: [
             Expanded(
               child: Text(
                 ingredient.foodName,
                 style: const TextStyle(fontSize: 13),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            SizedBox(
-              width: 44,
-              child: TextField(
-                key: Key('ingredient-quantity-field-${ingredient.foodId}'),
-                controller: _qtyCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12),
-                decoration: const InputDecoration(
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                  border: OutlineInputBorder(),
-                ),
-              ),
+            _quantityField(
+              key: Key('ingredient-quantity-field-${ingredient.foodId}'),
+              controller: _qtyCtrl,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 4),
             Text(
               ingredient.quantity.unit,
               style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
-            IconButton(
+            _compactIconButton(
               key: Key('ingredient-quantity-confirm-${ingredient.foodId}'),
-              icon: const Icon(Icons.check_circle_outline, size: 18),
+              icon: Icons.check_circle_outline,
               color: AppColors.brandGreen,
               onPressed: _confirmQuantity,
             ),
