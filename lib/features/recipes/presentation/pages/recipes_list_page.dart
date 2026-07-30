@@ -50,96 +50,135 @@ class RecipesListPage extends ConsumerWidget {
   }
 }
 
-class _RecipesListBody extends ConsumerWidget {
+class _RecipesListBody extends ConsumerStatefulWidget {
   const _RecipesListBody({required this.recipes});
 
   final List<Recipe> recipes;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_RecipesListBody> createState() => _RecipesListBodyState();
+}
+
+class _RecipesListBodyState extends ConsumerState<_RecipesListBody> {
+  /// Recipes swiped away locally, hidden immediately while the delete
+  /// request is in flight — `recipes` comes from a Riverpod provider one
+  /// level up, so without this a `Dismissible` would still be in the tree
+  /// on the next build (before the provider refetches), which Flutter
+  /// treats as an error ("a dismissed Dismissible widget is still part of
+  /// the tree").
+  final Set<int> _locallyDeletedRecipeIds = {};
+
+  Future<void> _refresh() => ref.refresh(recipesListProvider.future);
+
+  void _deleteRecipe(int id) {
+    setState(() => _locallyDeletedRecipeIds.add(id));
+    ref.read(recipeRepositoryProvider).deleteRecipe(id);
+    ref.invalidate(recipesListProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final recipes = widget.recipes
+        .where((r) => !_locallyDeletedRecipeIds.contains(r.id))
+        .toList();
+
     if (recipes.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: SectionCard(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.menu_book_outlined,
-                size: 40,
-                color: AppColors.textSecondary,
+      // A plain (non-scrollable) empty state wouldn't support the pull
+      // gesture at all — RefreshIndicator needs a scrollable descendant, so
+      // this is a single-item ListView rather than a bare Padding/Column,
+      // same as every other empty-state-but-still-refreshable page.
+      return RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            SectionCard(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.menu_book_outlined,
+                    size: 40,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No recipes yet',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Create a custom recipe to easily log your favorite meals and ingredients.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: () => context.push('/recipes/add'),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add recipe'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                'No recipes yet',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Create a custom recipe to easily log your favorite meals and ingredients.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 12),
-              TextButton.icon(
-                onPressed: () => context.push('/recipes/add'),
-                icon: const Icon(Icons.add),
-                label: const Text('Add recipe'),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: recipes.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final recipe = recipes[index];
-        final perServing = recipePerServing(recipe);
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: recipes.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final recipe = recipes[index];
+          final perServing = recipePerServing(recipe);
 
-        return SectionCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+          return Dismissible(
+            key: ValueKey('recipe-dismissible-${recipe.id}'),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 12),
+              child: const Icon(Icons.delete_outline, color: Colors.red),
+            ),
+            onDismissed: (_) => _deleteRecipe(recipe.id),
+            child: SectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
+                  InkWell(
+                    onTap: () => context.push('/recipes/add', extra: recipe),
                     child: Text(
                       recipe.name,
-                      style: Theme.of(context).textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined),
-                    tooltip: 'Edit recipe',
-                    onPressed: () =>
-                        context.push('/recipes/add', extra: recipe),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${perServing.calories.round()} cal / serving',
+                    style: const TextStyle(color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton(
+                      onPressed: () => showLogRecipeDialog(context, recipe),
+                      child: const Text('Log to diary'),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                '${perServing.calories.round()} cal / serving',
-                style: const TextStyle(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton(
-                  onPressed: () => showLogRecipeDialog(context, recipe),
-                  child: const Text('Log to diary'),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+            ),
+          );
+        },
+      ),
     );
   }
 }

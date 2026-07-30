@@ -13,7 +13,7 @@ import '../fakes/fake_recipe_repository.dart';
 
 void main() {
   testWidgets(
-    'tapping the edit icon on a recipe card opens it pre-filled, and saving '
+    'tapping the recipe name on a card opens it pre-filled, and saving '
     'refreshes the list',
     (tester) async {
       final fake = FakeRecipeRepository();
@@ -43,7 +43,7 @@ void main() {
 
       expect(find.text('Chicken Rice Bowl'), findsOneWidget);
 
-      await tester.tap(find.widgetWithIcon(IconButton, Icons.edit_outlined));
+      await tester.tap(find.text('Chicken Rice Bowl'));
       await tester.pumpAndSettle();
 
       expect(find.text('Edit Recipe'), findsOneWidget);

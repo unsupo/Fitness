@@ -78,8 +78,15 @@ class FakeRecipeRepository implements RecipeRepository {
   /// Records the id passed to the last `deleteRecipe` call.
   int? lastDeleteRecipeCall;
 
+  /// How many times `getRecipes` has been called — used to assert
+  /// pull-to-refresh actually re-fetches instead of just replaying cache.
+  int getRecipesCallCount = 0;
+
   @override
-  Future<List<Recipe>> getRecipes() async => recipes;
+  Future<List<Recipe>> getRecipes() async {
+    getRecipesCallCount++;
+    return recipes;
+  }
 
   @override
   Future<List<FoodItem>> searchFoods(String query) async {
