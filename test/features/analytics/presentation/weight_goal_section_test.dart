@@ -187,14 +187,51 @@ void main() {
 
       final chart = tester.widget<LineChart>(find.byType(LineChart));
       final actualSeries = _seriesWithColor(chart.data, AppColors.accentOrange);
+      // barIndex must reflect the series' real position in lineBarsData —
+      // that's what fl_chart itself passes in production — not just 0,
+      // otherwise this test can't catch a label/series mismatch.
+      final actualIndex = chart.data.lineBarsData.indexOf(actualSeries);
       final tooltipItems = chart.data.lineTouchData.touchTooltipData
           .getTooltipItems([
-            LineBarSpot(actualSeries, 0, actualSeries.spots.first),
+            LineBarSpot(actualSeries, actualIndex, actualSeries.spots.first),
           ]);
 
       expect(tooltipItems.single, isNotNull);
       expect(tooltipItems.single!.text, contains('Actual'));
       expect(tooltipItems.single!.text, contains('85'));
+    },
+  );
+
+  testWidgets(
+    'labels a touched point on the green Projected series as "Projected", '
+    'not "Actual" — the label must follow the series, not paint order',
+    (tester) async {
+      final fake = FakeAnalyticsRepository(
+        weightHistory: [
+          WeightEntry(id: 1, loggedAt: DateTime(2026, 7, 20), weightKg: 85, goalType: 'lose'),
+        ],
+        calorieGoal: 2000,
+        userProfile: const UserProfile(
+          sex: 'male',
+          age: 30,
+          heightCm: 180,
+          activityLevel: 'sedentary',
+          targetWeightKg: 80,
+        ),
+      );
+      await pump(tester, fake);
+
+      final chart = tester.widget<LineChart>(find.byType(LineChart));
+      final projectedSeries = _seriesWithColor(chart.data, AppColors.brandGreen);
+      final projectedIndex = chart.data.lineBarsData.indexOf(projectedSeries);
+      final tooltipItems = chart.data.lineTouchData.touchTooltipData
+          .getTooltipItems([
+            LineBarSpot(projectedSeries, projectedIndex, projectedSeries.spots.last),
+          ]);
+
+      expect(tooltipItems.single, isNotNull);
+      expect(tooltipItems.single!.text, contains('Projected'));
+      expect(tooltipItems.single!.text, isNot(contains('Actual')));
     },
   );
 

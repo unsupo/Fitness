@@ -298,7 +298,7 @@ class _ProjectionChartState extends State<_ProjectionChart> {
               getTooltipItems: (touchedSpots) => [
                 for (final spot in touchedSpots)
                   LineTooltipItem(
-                    '${spot.barIndex == 0 ? 'Actual' : 'Projected'}\n'
+                    '${spot.bar.color == AppColors.accentOrange ? 'Actual' : 'Projected'}\n'
                     '${DateFormat('MMM d, yyyy').format(widget.origin.add(Duration(days: spot.x.round())))}\n'
                     '${spot.y.toStringAsFixed(1)} ${widget.unit}',
                     const TextStyle(
