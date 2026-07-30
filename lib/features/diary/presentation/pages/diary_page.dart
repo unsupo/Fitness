@@ -90,6 +90,8 @@ class _DiaryContent extends ConsumerWidget {
                     ? 0
                     : totals.proteinG / goals.proteinGoalG,
                 color: AppColors.proteinRing,
+                actualGrams: totals.proteinG,
+                targetGrams: goals.proteinGoalG,
               ),
               MacroRing(
                 label: 'Carbs',
@@ -97,6 +99,8 @@ class _DiaryContent extends ConsumerWidget {
                     ? 0
                     : totals.carbsG / goals.carbsGoalG,
                 color: AppColors.carbsRing,
+                actualGrams: totals.carbsG,
+                targetGrams: goals.carbsGoalG,
               ),
               MacroRing(
                 label: 'Fat',
@@ -104,6 +108,8 @@ class _DiaryContent extends ConsumerWidget {
                     ? 0
                     : totals.fatG / goals.fatGoalG,
                 color: AppColors.fatRing,
+                actualGrams: totals.fatG,
+                targetGrams: goals.fatGoalG,
               ),
             ],
           ),

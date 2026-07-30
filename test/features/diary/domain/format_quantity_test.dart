@@ -1,12 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:arndt_fitness/core/network/supabase_tables.dart';
 import 'package:arndt_fitness/features/diary/domain/entities/diary_entry.dart';
 import 'package:arndt_fitness/features/diary/domain/use_cases/format_quantity.dart';
+import 'package:arndt_fitness/core/entities/logged_quantity.dart';
 
 void main() {
   DiaryEntry entry({
     required double quantity,
+    String unit = 'serving',
     double? servingSize,
     String? servingUnit,
   }) => DiaryEntry(
@@ -14,7 +15,7 @@ void main() {
     loggedAt: DateTime(2026, 7, 21),
     mealType: MealType.snack,
     foodName: 'BBQ Pringles',
-    quantity: quantity,
+    quantity: LoggedQuantity(amount: quantity, unit: unit),
     calories: 150,
     proteinG: 1,
     carbsG: 15,

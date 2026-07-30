@@ -8,6 +8,7 @@ import 'package:arndt_fitness/features/diary/domain/entities/daily_goals.dart';
 import 'package:arndt_fitness/features/diary/presentation/controllers/diary_providers.dart';
 import 'package:arndt_fitness/features/profile/presentation/pages/profile_page.dart';
 
+import 'package:arndt_fitness/features/analytics/domain/entities/weight_entry.dart';
 import '../../analytics/fakes/fake_analytics_repository.dart';
 import '../../diary/fakes/fake_diary_repository.dart';
 
@@ -124,5 +125,64 @@ void main() {
 
     expect(find.text('Weight goal'), findsOneWidget);
     expect(find.byKey(const Key('goal-target-weight-field')), findsOneWidget);
+  });
+
+  testWidgets('shows weekly rate slider and bidirectionally calculates calorie goal', (tester) async {
+    final analyticsFake = FakeAnalyticsRepository(
+      userProfile: const UserProfile(
+        sex: 'male',
+        age: 30,
+        heightCm: 180,
+        activityLevel: 'sedentary',
+        targetWeightKg: 80,
+        unitSystem: 'metric',
+      ),
+      weightHistory: [
+        WeightEntry(
+          id: 1,
+          loggedAt: DateTime(2026, 7, 29),
+          weightKg: 80.0,
+          goalType: 'lose',
+        ),
+      ],
+    );
+
+    await pumpProfilePage(
+      tester,
+      diaryFake: FakeDiaryRepository(goals: goals),
+      analyticsFake: analyticsFake,
+    );
+
+    // Open Daily Goals dialog
+    await tester.tap(find.byKey(const Key('edit-daily-goals-button')));
+    await tester.pumpAndSettle();
+
+    // Verify TDEE estimated and weekly rate slider displayed
+    // TDEE = (10 * 80 + 6.25 * 180 - 5 * 30 + 5) * 1.2 = (800 + 1125 - 150 + 5) * 1.2 = 1780 * 1.2 = 2136
+    expect(find.text('Estimated TDEE: 2136 kcal'), findsOneWidget);
+    expect(find.byKey(const Key('weekly-rate-slider')), findsOneWidget);
+
+    // Initial calories is 2000. 
+    // Rate: (2000 - 2136) * 7 / 7700 = -136 * 7 / 7700 = -0.123 kg/week. Rounded to nearest 0.25 -> -0.00
+    // Check if slider is found and we can interact with it
+    final sliderFinder = find.byKey(const Key('weekly-rate-slider'));
+    expect(sliderFinder, findsOneWidget);
+
+    // Let's enter a new calorie goal in the text field and see slider update
+    // Calorie goal = 1036 (deficit of 1100 kcal -> -1.0 kg/week)
+    await tester.enterText(find.byKey(const Key('goals-calorie-field')), '1036');
+    await tester.pumpAndSettle();
+    
+    // Slider value should be updated to -1.0. Let's verify text says "Lose 1.00 kg/week"
+    expect(find.text('Lose 1.00 kg/week'), findsOneWidget);
+
+    // Let's drag the slider to 0.0 (Maintain weight)
+    // A Slider widget can be updated by tapping or dragging. Let's tap the center of the slider.
+    await tester.tap(sliderFinder);
+    await tester.pumpAndSettle();
+
+    // Verify calorie goal text updated to TDEE (approx 2136)
+    final calorieFieldVal = (tester.widget(find.byKey(const Key('goals-calorie-field'))) as TextField).controller?.text;
+    expect(double.parse(calorieFieldVal!), closeTo(2136, 100)); // allow some tolerance depending on slider tap accuracy
   });
 }

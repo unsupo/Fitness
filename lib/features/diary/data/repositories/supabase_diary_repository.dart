@@ -1,10 +1,13 @@
 import 'package:arndt_fitness/core/network/open_food_facts_data_source.dart';
 import 'package:arndt_fitness/core/network/supabase_json.dart';
+import 'package:arndt_fitness/core/network/supabase_tables.dart';
+import 'package:arndt_fitness/core/entities/logged_quantity.dart';
 import 'package:arndt_fitness/features/diary/data/data_sources/diary_remote_data_source.dart';
 import 'package:arndt_fitness/features/diary/data/models/diary_entry_model.dart';
 import 'package:arndt_fitness/features/diary/data/models/online_food_candidate_model.dart';
 import 'package:arndt_fitness/features/diary/domain/entities/daily_goals.dart';
 import 'package:arndt_fitness/features/diary/data/models/food_item_model.dart';
+import 'package:arndt_fitness/features/diary/domain/use_cases/logged_quantity_converter.dart';
 import 'package:arndt_fitness/features/diary/domain/entities/diary_entry.dart';
 import 'package:arndt_fitness/features/diary/domain/entities/food_item.dart';
 import 'package:arndt_fitness/features/diary/domain/entities/online_food_candidate.dart';
@@ -75,7 +78,12 @@ class SupabaseDiaryRepository implements DiaryRepository {
   @override
   Future<void> updateEntry(DiaryEntry entry) => _dataSource.updateEntry(
     id: entry.id,
-    quantity: entry.quantity,
+    quantity: LoggedQuantityConverter.toServingMultiplier(
+      entry.quantity,
+      servingSize: entry.servingSize,
+      servingUnit: entry.servingUnit,
+    ),
+    quantityUnit: entry.quantity.unit,
     mealType: entry.mealType.name,
     loggedAt: entry.loggedAt,
     calories: entry.calories,
@@ -127,5 +135,37 @@ class SupabaseDiaryRepository implements DiaryRepository {
       'is_estimate': false,
     });
     return FoodItemModel.fromJson(row).toEntity();
+  }
+
+  @override
+  Future<void> logFood({
+    required int foodId,
+    required LoggedQuantity quantity,
+    required MealType mealType,
+    required DateTime loggedAt,
+    required double calories,
+    required double proteinG,
+    required double carbsG,
+    required double fatG,
+    double? servingSize,
+    String? servingUnit,
+  }) async {
+    final servingMultiplier = LoggedQuantityConverter.toServingMultiplier(
+      quantity,
+      servingSize: servingSize,
+      servingUnit: servingUnit,
+    );
+
+    await _dataSource.insertFoodLog({
+      'logged_at': loggedAt.toUtc().toIso8601String(),
+      'food_id': foodId,
+      'quantity': servingMultiplier,
+      'quantity_unit': quantity.unit,
+      'calories': calories,
+      'protein_g': proteinG,
+      'carbs_g': carbsG,
+      'fat_g': fatG,
+      'meal_type': mealType.name,
+    });
   }
 }

@@ -1,9 +1,10 @@
 import 'package:arndt_fitness/core/network/supabase_json.dart';
+import 'package:arndt_fitness/features/diary/domain/use_cases/logged_quantity_converter.dart';
 import 'package:arndt_fitness/features/recipes/domain/entities/recipe.dart';
 import 'package:arndt_fitness/features/recipes/domain/entities/recipe_ingredient.dart';
 
 /// Maps a `recipes` row joined with
-/// `recipe_ingredients(quantity, foods(id, name, calories, protein_g, carbs_g, fat_g))`
+/// `recipe_ingredients(quantity, foods(id, name, calories, protein_g, carbs_g, fat_g, serving_size, serving_unit))`
 /// (see `RecipesRemoteDataSource.getRecipes`) to a [Recipe].
 class RecipeModel {
   const RecipeModel({
@@ -26,19 +27,29 @@ class RecipeModel {
     final ingredients = rawIngredients.map((row) {
       final food = row['foods'] as Map<String, dynamic>;
       final quantity = parseSupabaseNum(row['quantity']);
+      final quantityUnit = row['quantity_unit'] as String?;
       final foodCalories = parseSupabaseNum(food['calories']);
       final foodProteinG = parseSupabaseNum(food['protein_g']);
       final foodCarbsG = parseSupabaseNum(food['carbs_g']);
       final foodFatG = parseSupabaseNum(food['fat_g']);
+      final servingSize = food['serving_size'] == null ? null : parseSupabaseNum(food['serving_size']);
+      final servingUnit = food['serving_unit'] as String?;
 
       return RecipeIngredient(
         foodId: food['id'] as int,
         foodName: food['name'] as String,
-        quantity: quantity,
+        quantity: LoggedQuantityConverter.fromServingMultiplier(
+          quantity,
+          servingSize: servingSize,
+          servingUnit: servingUnit,
+          knownUnit: quantityUnit,
+        ),
         calories: quantity * foodCalories,
         proteinG: quantity * foodProteinG,
         carbsG: quantity * foodCarbsG,
         fatG: quantity * foodFatG,
+        servingSize: servingSize,
+        servingUnit: servingUnit,
       );
     }).toList();
 

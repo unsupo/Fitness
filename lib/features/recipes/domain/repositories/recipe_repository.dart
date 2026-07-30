@@ -15,7 +15,7 @@ abstract class RecipeRepository {
   Future<void> createRecipe({
     required String name,
     required double servings,
-    required List<({int foodId, double quantity})> ingredients,
+    required List<({int foodId, double quantity, String quantityUnit})> ingredients,
   });
 
   /// Replaces the recipe's name/servings and its full ingredient list.
@@ -23,7 +23,7 @@ abstract class RecipeRepository {
     required int recipeId,
     required String name,
     required double servings,
-    required List<({int foodId, double quantity})> ingredients,
+    required List<({int foodId, double quantity, String quantityUnit})> ingredients,
   });
 
   /// Deletes the recipe and its ingredients. Diary entries already logged
@@ -31,5 +31,5 @@ abstract class RecipeRepository {
   /// (the `food_log.recipe_id` FK is `ON DELETE SET NULL`).
   Future<void> deleteRecipe(int recipeId);
 
-  Future<void> logRecipeToDiary(int recipeId, MealType mealType);
+  Future<void> logRecipeToDiary(int recipeId, MealType mealType, {double portionQuantity = 1.0});
 }

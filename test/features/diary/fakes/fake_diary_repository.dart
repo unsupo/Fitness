@@ -5,6 +5,8 @@ import 'package:arndt_fitness/features/diary/domain/entities/food_item.dart';
 import 'package:arndt_fitness/features/diary/domain/entities/online_food_candidate.dart';
 import 'package:arndt_fitness/features/diary/domain/repositories/diary_repository.dart';
 
+import 'package:arndt_fitness/core/entities/logged_quantity.dart';
+
 /// A canned [DiaryRepository] for widget tests — no real network/Supabase
 /// calls. Returns fixed entries across two meal types and a fixed goals row.
 class FakeDiaryRepository implements DiaryRepository {
@@ -29,7 +31,7 @@ class FakeDiaryRepository implements DiaryRepository {
       loggedAt: DateTime(2026, 7, 21, 8, 0),
       mealType: MealType.breakfast,
       foodName: 'Oatmeal',
-      quantity: 1,
+      quantity: const LoggedQuantity(amount: 1.0, unit: 'serving'),
       calories: 300,
       proteinG: 10,
       carbsG: 50,
@@ -40,7 +42,7 @@ class FakeDiaryRepository implements DiaryRepository {
       loggedAt: DateTime(2026, 7, 21, 12, 30),
       mealType: MealType.lunch,
       foodName: 'Chicken Salad',
-      quantity: 1,
+      quantity: const LoggedQuantity(amount: 1.0, unit: 'serving'),
       calories: 450,
       proteinG: 35,
       carbsG: 20,
@@ -51,7 +53,7 @@ class FakeDiaryRepository implements DiaryRepository {
       loggedAt: DateTime(2026, 7, 21, 12, 45),
       mealType: MealType.lunch,
       foodName: 'Apple',
-      quantity: 1,
+      quantity: const LoggedQuantity(amount: 1.0, unit: 'serving'),
       calories: 95,
       proteinG: 0,
       carbsG: 25,
@@ -158,5 +160,44 @@ class FakeDiaryRepository implements DiaryRepository {
       imageUrl: candidate.imageUrl,
       sourceUrl: candidate.sourceUrl,
     );
+  }
+
+  int? lastLoggedFoodId;
+  LoggedQuantity? lastLoggedQuantity;
+  MealType? lastLoggedMealType;
+  DateTime? lastLoggedAt;
+
+  @override
+  Future<void> logFood({
+    required int foodId,
+    required LoggedQuantity quantity,
+    required MealType mealType,
+    required DateTime loggedAt,
+    required double calories,
+    required double proteinG,
+    required double carbsG,
+    required double fatG,
+    double? servingSize,
+    String? servingUnit,
+  }) async {
+    lastLoggedFoodId = foodId;
+    lastLoggedQuantity = quantity;
+    lastLoggedMealType = mealType;
+    lastLoggedAt = loggedAt;
+
+    entries.add(DiaryEntry(
+      id: entries.length + 1,
+      loggedAt: loggedAt,
+      mealType: mealType,
+      foodName: 'Food $foodId',
+      quantity: quantity,
+      calories: calories,
+      proteinG: proteinG,
+      carbsG: carbsG,
+      fatG: fatG,
+      foodId: foodId,
+      servingSize: servingSize,
+      servingUnit: servingUnit,
+    ));
   }
 }

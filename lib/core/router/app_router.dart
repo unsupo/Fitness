@@ -7,6 +7,7 @@ import '../../features/diary/presentation/pages/food_detail_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/recipes/domain/entities/recipe.dart';
 import '../../features/recipes/presentation/pages/add_recipe_page.dart';
+import '../../features/recipes/presentation/pages/recipe_detail_page.dart';
 import '../../features/recipes/presentation/pages/recipes_list_page.dart';
 import '../../features/scanner/presentation/pages/barcode_scanner_page.dart';
 import '../../features/scanner/presentation/pages/food_recognition_page.dart';
@@ -75,6 +76,13 @@ final appRouter = GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) =>
           AddRecipePage(recipeToEdit: state.extra as Recipe?),
+    ),
+    GoRoute(
+      path: '/recipes/detail/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => RecipeDetailPage(
+        recipeId: int.parse(state.pathParameters['id']!),
+      ),
     ),
     GoRoute(
       path: '/workouts',

@@ -33,7 +33,7 @@ class SupabaseRecipeRepository implements RecipeRepository {
   Future<void> createRecipe({
     required String name,
     required double servings,
-    required List<({int foodId, double quantity})> ingredients,
+    required List<({int foodId, double quantity, String quantityUnit})> ingredients,
   }) async {
     final recipeId = await _dataSource.insertRecipe(
       name: name,
@@ -47,7 +47,7 @@ class SupabaseRecipeRepository implements RecipeRepository {
     required int recipeId,
     required String name,
     required double servings,
-    required List<({int foodId, double quantity})> ingredients,
+    required List<({int foodId, double quantity, String quantityUnit})> ingredients,
   }) async {
     await _dataSource.updateRecipe(
       recipeId: recipeId,
@@ -61,7 +61,7 @@ class SupabaseRecipeRepository implements RecipeRepository {
   Future<void> deleteRecipe(int recipeId) => _dataSource.deleteRecipe(recipeId);
 
   @override
-  Future<void> logRecipeToDiary(int recipeId, MealType mealType) async {
+  Future<void> logRecipeToDiary(int recipeId, MealType mealType, {double portionQuantity = 1.0}) async {
     final row = await _dataSource.getRecipeById(recipeId);
     final recipe = RecipeModel.fromJson(row).toEntity();
     final perServing = recipePerServing(recipe);
@@ -70,11 +70,11 @@ class SupabaseRecipeRepository implements RecipeRepository {
       'logged_at': DateTime.now().toUtc().toIso8601String(),
       'recipe_id': recipeId,
       'food_id': null,
-      'quantity': 1,
-      'calories': perServing.calories,
-      'protein_g': perServing.proteinG,
-      'carbs_g': perServing.carbsG,
-      'fat_g': perServing.fatG,
+      'quantity': portionQuantity,
+      'calories': perServing.calories * portionQuantity,
+      'protein_g': perServing.proteinG * portionQuantity,
+      'carbs_g': perServing.carbsG * portionQuantity,
+      'fat_g': perServing.fatG * portionQuantity,
       'meal_type': mealType.name,
     });
   }

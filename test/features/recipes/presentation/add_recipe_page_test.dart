@@ -75,8 +75,80 @@ void main() {
         expect(fake.lastCreateRecipeCall!.name, 'My Recipe');
         expect(fake.lastCreateRecipeCall!.servings, 2);
         expect(fake.lastCreateRecipeCall!.ingredients, [
-          (foodId: 1, quantity: 2.0),
+          (foodId: 1, quantity: 2.0, quantityUnit: 'serving'),
         ]);
+      },
+    );
+
+    testWidgets('allows adding and removing ingredients', (tester) async {
+      final fake = FakeRecipeRepository();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            recipeRepositoryProvider.overrideWithValue(fake),
+            diaryRepositoryProvider.overrideWithValue(FakeDiaryRepository()),
+          ],
+          child: const MaterialApp(home: AddRecipePage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Initially 1 ingredient row. Delete button should not show when only 1 row.
+      expect(find.byTooltip('Remove ingredient'), findsNothing);
+
+      // Add a second row
+      await tester.tap(find.text('Add ingredient'));
+      await tester.pumpAndSettle();
+
+      // Now we have 2 rows, so both should have a delete button.
+      expect(find.byTooltip('Remove ingredient'), findsNWidgets(2));
+
+      // Remove the second row
+      await tester.tap(find.byKey(const Key('remove-ingredient-1')));
+      await tester.pumpAndSettle();
+
+      // Back to 1 row, no delete button.
+      expect(find.byTooltip('Remove ingredient'), findsNothing);
+    });
+
+    testWidgets(
+      'the ingredient list is collapsible, expanded by default, showing '
+      'a count that stays visible either way',
+      (tester) async {
+        final fake = FakeRecipeRepository();
+        final recipeToEdit = fake.recipes.first; // Chicken Rice Bowl, 2 ingredients.
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              recipeRepositoryProvider.overrideWithValue(fake),
+              diaryRepositoryProvider.overrideWithValue(FakeDiaryRepository()),
+            ],
+            child: MaterialApp(home: AddRecipePage(recipeToEdit: recipeToEdit)),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Expanded by default — existing ingredient rows are editable.
+        expect(find.text('Ingredients (2)'), findsOneWidget);
+        expect(find.byKey(const Key('food-field-0')), findsOneWidget);
+        expect(find.byKey(const Key('food-field-1')), findsOneWidget);
+
+        await tester.tap(find.text('Ingredients (2)'));
+        await tester.pumpAndSettle();
+
+        // Collapsed — rows hidden, but the count heading stays.
+        expect(find.text('Ingredients (2)'), findsOneWidget);
+        expect(find.byKey(const Key('food-field-0')), findsNothing);
+        expect(find.byKey(const Key('food-field-1')), findsNothing);
+
+        await tester.tap(find.text('Ingredients (2)'));
+        await tester.pumpAndSettle();
+
+        // Expands again.
+        expect(find.byKey(const Key('food-field-0')), findsOneWidget);
+        expect(find.byKey(const Key('food-field-1')), findsOneWidget);
       },
     );
 
@@ -149,8 +221,8 @@ void main() {
       );
       expect(fake.lastUpdateRecipeCall!.servings, 2);
       expect(fake.lastUpdateRecipeCall!.ingredients, [
-        (foodId: 1, quantity: 2.0),
-        (foodId: 2, quantity: 1.0),
+        (foodId: 1, quantity: 2.0, quantityUnit: 'serving'),
+        (foodId: 2, quantity: 1.0, quantityUnit: 'serving'),
       ]);
       expect(fake.lastCreateRecipeCall, isNull);
     });
@@ -172,7 +244,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithIcon(IconButton, Icons.delete_outline));
+      await tester.tap(find.byTooltip('Delete recipe'));
       await tester.pumpAndSettle();
 
       // Confirmation dialog.
@@ -199,7 +271,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.delete_outline), findsNothing);
+      expect(find.byTooltip('Delete recipe'), findsNothing);
     });
   });
 

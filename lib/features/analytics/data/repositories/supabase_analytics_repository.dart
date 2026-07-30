@@ -92,12 +92,15 @@ class SupabaseAnalyticsRepository implements AnalyticsRepository {
   Future<void> updateUserProfile(UserProfile profile) =>
       _dataSource.updateUserProfile(UserProfileModel.toUpdateJson(profile));
 
-  ({DateTime loggedAt, double calories}) _toCalorieEntry(
+  ({DateTime loggedAt, double calories, double proteinG, double carbsG, double fatG}) _toCalorieEntry(
     Map<String, dynamic> row,
   ) {
     return (
       loggedAt: DateTime.parse(row['logged_at'] as String).toLocal(),
       calories: parseSupabaseNum(row['calories']),
+      proteinG: parseSupabaseNum(row['protein_g']),
+      carbsG: parseSupabaseNum(row['carbs_g']),
+      fatG: parseSupabaseNum(row['fat_g']),
     );
   }
 

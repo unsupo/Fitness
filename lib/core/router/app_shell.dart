@@ -10,6 +10,8 @@ import '../theme/app_theme.dart';
 /// action — the mockup originally had a literal "Breakfast" tab here, which
 /// was redundant with Home (which already shows every meal) and got
 /// replaced.
+import 'package:arndt_fitness/features/diary/presentation/widgets/quick_add_modal.dart';
+
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.navigationShell});
 
@@ -27,7 +29,7 @@ class AppShell extends StatelessWidget {
       body: navigationShell,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showQuickAddMenu(context),
+        onPressed: () => showQuickAddModal(context),
         child: const Icon(Icons.add),
       ),
       bottomNavigationBar: BottomAppBar(
@@ -68,35 +70,6 @@ class AppShell extends StatelessWidget {
             BottomNavigationBarItem(
               icon: Icon(Icons.person_outline),
               label: 'Profile',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showQuickAddMenu(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.qr_code_scanner),
-              title: const Text('Scan Barcode'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                context.push('/scanner');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt_outlined),
-              title: const Text('Take Photo'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                context.push('/food-recognition');
-              },
             ),
           ],
         ),

@@ -29,7 +29,7 @@ void main() {
   }
 
   testWidgets(
-    'defaults to the Trends tab, showing all three section headings',
+    'shows all three section headings',
     (tester) async {
       final fake = FakeAnalyticsRepository();
       await pumpTrendsPage(tester, fake);
@@ -43,31 +43,71 @@ void main() {
     },
   );
 
-  testWidgets('Weekly tab shows only the calories chart', (tester) async {
-    final fake = FakeAnalyticsRepository();
-    await pumpTrendsPage(tester, fake);
+  testWidgets(
+    'tapping a day\'s bar shows that day\'s calories and macro breakdown',
+    (tester) async {
+      final fake = FakeAnalyticsRepository();
+      await pumpTrendsPage(tester, fake);
 
-    await tester.tap(find.text('Weekly'));
-    await tester.pumpAndSettle();
+      // Tap near the first bar group's rendered position.
+      final chartRect = tester.getRect(find.byType(BarChart));
+      await tester.tapAt(Offset(chartRect.left + 20, chartRect.center.dy));
+      await tester.pump();
 
-    expect(find.text('Weekly Calories'), findsOneWidget);
-    expect(find.text('Macro Breakdown'), findsNothing);
-    expect(find.text('Weight'), findsNothing);
-  });
+      // First fixture day: DateTime(2026, 7, 20), 1800 kcal, 120g protein,
+      // 200g carbs, 70g fat.
+      expect(find.textContaining('1800'), findsWidgets);
+      expect(find.textContaining('120'), findsWidgets);
+      expect(find.textContaining('200'), findsWidgets);
+      expect(find.textContaining('70'), findsWidgets);
+    },
+  );
 
-  testWidgets('Progress tab shows macro breakdown and weight, not calories', (
-    tester,
-  ) async {
-    final fake = FakeAnalyticsRepository();
-    await pumpTrendsPage(tester, fake);
+  testWidgets(
+    'the weekly calories chart is a real horizontal-scrolling page view — '
+    'dragging tracks the finger and settles on the next/previous week, '
+    'in sync with the chevron buttons',
+    (tester) async {
+      final fake = FakeAnalyticsRepository();
+      await tester.binding.setSurfaceSize(const Size(400, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.tap(find.text('Progress'));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            analyticsRepositoryProvider.overrideWithValue(fake),
+            selectedWeekStartProvider.overrideWith(
+              (ref) => DateTime(2026, 7, 20),
+            ),
+          ],
+          child: const MaterialApp(home: TrendsPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('Weekly Calories'), findsNothing);
-    expect(find.text('Macro Breakdown'), findsOneWidget);
-    expect(find.text('Weight'), findsOneWidget);
-  });
+      expect(find.text('Jul 20-26'), findsOneWidget);
+      expect(find.byType(PageView), findsOneWidget);
+
+      // A plain drag (not a fast fling) is enough to change pages — the
+      // hallmark of an actual PageView vs. a velocity-threshold gesture.
+      await tester.drag(find.byType(PageView), const Offset(-350, 0));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Jul 27 - Aug 2'), findsOneWidget);
+
+      // The chevron (a separate widget from the PageView) must still work
+      // and must keep the PageView in sync — dragging afterward should
+      // continue from wherever the chevron left off, not the stale page.
+      await tester.tap(find.byIcon(Icons.chevron_left));
+      await tester.pumpAndSettle();
+      expect(find.text('Jul 20-26'), findsOneWidget);
+
+      await tester.drag(find.byType(PageView), const Offset(350, 0));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Jul 13-19'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'shows a friendly empty state when there is no weigh-in history',

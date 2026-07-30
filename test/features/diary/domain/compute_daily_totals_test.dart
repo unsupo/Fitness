@@ -3,6 +3,8 @@ import 'package:arndt_fitness/features/diary/domain/entities/diary_entry.dart';
 import 'package:arndt_fitness/features/diary/domain/use_cases/compute_daily_totals.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:arndt_fitness/core/entities/logged_quantity.dart';
+
 DiaryEntry _entry({
   required int id,
   required MealType mealType,
@@ -16,7 +18,7 @@ DiaryEntry _entry({
     loggedAt: DateTime(2026, 7, 21, 8, 0),
     mealType: mealType,
     foodName: 'Food $id',
-    quantity: 1,
+    quantity: const LoggedQuantity(amount: 1.0, unit: 'serving'),
     calories: calories,
     proteinG: proteinG,
     carbsG: carbsG,

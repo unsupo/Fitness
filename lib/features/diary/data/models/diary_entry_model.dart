@@ -1,6 +1,7 @@
 import 'package:arndt_fitness/core/network/supabase_json.dart';
 import 'package:arndt_fitness/core/network/supabase_tables.dart';
 import 'package:arndt_fitness/features/diary/domain/entities/diary_entry.dart';
+import 'package:arndt_fitness/features/diary/domain/use_cases/logged_quantity_converter.dart';
 
 /// Maps a `food_log` row (joined with `foods(name)` and `recipes(name)`) to
 /// a [DiaryEntry]. An entry references exactly one of `food_id`/`recipe_id`
@@ -21,6 +22,8 @@ class DiaryEntryModel {
     required this.carbsG,
     required this.fatG,
     this.foodId,
+    this.recipeId,
+    this.quantityUnit,
     this.servingSize,
     this.servingUnit,
     this.imageUrl,
@@ -36,6 +39,13 @@ class DiaryEntryModel {
   final double carbsG;
   final double fatG;
   final int? foodId;
+  final int? recipeId;
+
+  /// The unit the user actually picked when logging (e.g. `'g'`), persisted
+  /// verbatim in `food_log.quantity_unit`. Null for rows logged before this
+  /// column existed — those fall back to reconstructing a unit from serving
+  /// size in [toEntity].
+  final String? quantityUnit;
   final double? servingSize;
   final String? servingUnit;
   final String? imageUrl;
@@ -62,6 +72,8 @@ class DiaryEntryModel {
       carbsG: parseSupabaseNum(json['carbs_g']),
       fatG: parseSupabaseNum(json['fat_g']),
       foodId: json['food_id'] as int?,
+      recipeId: json['recipe_id'] as int?,
+      quantityUnit: json['quantity_unit'] as String?,
       servingSize: rawServingSize == null ? null : parseSupabaseNum(rawServingSize),
       servingUnit: joinedFood?['serving_unit'] as String?,
       imageUrl: joinedFood?['image_url'] as String?,
@@ -73,12 +85,18 @@ class DiaryEntryModel {
     loggedAt: loggedAt,
     mealType: mealType,
     foodName: foodName,
-    quantity: quantity,
+    quantity: LoggedQuantityConverter.fromServingMultiplier(
+      quantity,
+      servingSize: servingSize,
+      servingUnit: servingUnit,
+      knownUnit: quantityUnit,
+    ),
     calories: calories,
     proteinG: proteinG,
     carbsG: carbsG,
     fatG: fatG,
     foodId: foodId,
+    recipeId: recipeId,
     servingSize: servingSize,
     servingUnit: servingUnit,
     imageUrl: imageUrl,

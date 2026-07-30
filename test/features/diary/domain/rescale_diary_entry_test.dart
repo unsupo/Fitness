@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:arndt_fitness/core/network/supabase_tables.dart';
 import 'package:arndt_fitness/features/diary/domain/entities/diary_entry.dart';
+import 'package:arndt_fitness/core/entities/logged_quantity.dart';
 import 'package:arndt_fitness/features/diary/domain/use_cases/rescale_diary_entry.dart';
 
 void main() {
@@ -11,7 +12,7 @@ void main() {
       loggedAt: DateTime(2026, 7, 21, 8, 0),
       mealType: MealType.breakfast,
       foodName: 'BBQ Pringles',
-      quantity: 0.5,
+      quantity: const LoggedQuantity(amount: 0.5, unit: 'serving'),
       calories: 75,
       proteinG: 0.5,
       carbsG: 7.5,
@@ -19,9 +20,10 @@ void main() {
       foodId: 3,
     );
 
-    final rescaled = rescaleDiaryEntry(entry, newQuantity: 1.0);
+    final rescaled = rescaleDiaryEntry(entry, newQuantity: const LoggedQuantity(amount: 1.0, unit: 'serving'));
 
-    expect(rescaled.quantity, 1.0);
+    expect(rescaled.quantity.amount, 1.0);
+    expect(rescaled.quantity.unit, 'serving');
     expect(rescaled.calories, 150);
     expect(rescaled.proteinG, 1.0);
     expect(rescaled.carbsG, 15.0);
@@ -39,14 +41,14 @@ void main() {
       loggedAt: DateTime(2026, 7, 21, 18, 51),
       mealType: MealType.snack,
       foodName: 'Protein Snack Plate',
-      quantity: 1,
+      quantity: const LoggedQuantity(amount: 1.0, unit: 'serving'),
       calories: 310,
       proteinG: 31,
       carbsG: 15,
       fatG: 9,
     );
 
-    final rescaled = rescaleDiaryEntry(entry, newQuantity: 2);
+    final rescaled = rescaleDiaryEntry(entry, newQuantity: const LoggedQuantity(amount: 2.0, unit: 'serving'));
 
     expect(rescaled.calories, 620);
     expect(rescaled.proteinG, 62);
@@ -58,14 +60,14 @@ void main() {
       loggedAt: DateTime(2026, 7, 21),
       mealType: MealType.snack,
       foodName: 'X',
-      quantity: 1,
+      quantity: const LoggedQuantity(amount: 1.0, unit: 'serving'),
       calories: 100,
       proteinG: 1,
       carbsG: 1,
       fatG: 1,
     );
 
-    expect(() => rescaleDiaryEntry(entry, newQuantity: 0), throwsArgumentError);
-    expect(() => rescaleDiaryEntry(entry, newQuantity: -1), throwsArgumentError);
+    expect(() => rescaleDiaryEntry(entry, newQuantity: const LoggedQuantity(amount: 0.0, unit: 'serving')), throwsArgumentError);
+    expect(() => rescaleDiaryEntry(entry, newQuantity: const LoggedQuantity(amount: -1.0, unit: 'serving')), throwsArgumentError);
   });
 }

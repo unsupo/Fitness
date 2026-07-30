@@ -1,11 +1,10 @@
+import 'package:arndt_fitness/core/network/supabase_tables.dart';
+import 'package:arndt_fitness/core/entities/logged_quantity.dart';
 import 'package:arndt_fitness/features/diary/domain/entities/daily_goals.dart';
 import 'package:arndt_fitness/features/diary/domain/entities/diary_entry.dart';
 import 'package:arndt_fitness/features/diary/domain/entities/food_item.dart';
 import 'package:arndt_fitness/features/diary/domain/entities/online_food_candidate.dart';
 
-/// Abstract seam between the diary presentation layer and whatever backend
-/// stores food log entries and daily goals. `SupabaseDiaryRepository` is the
-/// concrete adapter used by default; tests use a `FakeDiaryRepository`.
 abstract class DiaryRepository {
   Future<List<DiaryEntry>> getEntriesForDate(DateTime date);
   Future<DailyGoals> getDailyGoals();
@@ -28,6 +27,20 @@ abstract class DiaryRepository {
   Future<void> updateEntry(DiaryEntry entry);
 
   Future<void> deleteEntry(int id);
+
+  /// Logs a food item to the food_log table.
+  Future<void> logFood({
+    required int foodId,
+    required LoggedQuantity quantity,
+    required MealType mealType,
+    required DateTime loggedAt,
+    required double calories,
+    required double proteinG,
+    required double carbsG,
+    required double fatG,
+    double? servingSize,
+    String? servingUnit,
+  });
 
   /// Recently logged distinct foods, most-recently-logged first — shown
   /// wherever a food search's query box is empty (e.g. the recipe

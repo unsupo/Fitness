@@ -1,5 +1,7 @@
 import 'package:arndt_fitness/core/network/supabase_tables.dart';
 import 'package:arndt_fitness/features/diary/domain/entities/food_item.dart';
+import 'package:arndt_fitness/core/entities/logged_quantity.dart';
+import 'package:arndt_fitness/features/diary/domain/use_cases/logged_quantity_converter.dart';
 import 'package:arndt_fitness/features/recipes/domain/entities/recipe.dart';
 import 'package:arndt_fitness/features/recipes/domain/entities/recipe_ingredient.dart';
 import 'package:arndt_fitness/features/recipes/domain/repositories/recipe_repository.dart';
@@ -54,14 +56,13 @@ class FakeRecipeRepository implements RecipeRepository {
     ),
   ];
 
-  /// Records the arguments of the last `logRecipeToDiary` call.
-  ({int recipeId, MealType mealType})? lastLogRecipeToDiaryCall;
+  ({int recipeId, MealType mealType, double portionQuantity})? lastLogRecipeToDiaryCall;
 
   /// Records the arguments of the last `createRecipe` call.
   ({
     String name,
     double servings,
-    List<({int foodId, double quantity})> ingredients,
+    List<({int foodId, double quantity, String quantityUnit})> ingredients,
   })?
   lastCreateRecipeCall;
 
@@ -70,7 +71,7 @@ class FakeRecipeRepository implements RecipeRepository {
     int recipeId,
     String name,
     double servings,
-    List<({int foodId, double quantity})> ingredients,
+    List<({int foodId, double quantity, String quantityUnit})> ingredients,
   })?
   lastUpdateRecipeCall;
 
@@ -92,7 +93,7 @@ class FakeRecipeRepository implements RecipeRepository {
   Future<void> createRecipe({
     required String name,
     required double servings,
-    required List<({int foodId, double quantity})> ingredients,
+    required List<({int foodId, double quantity, String quantityUnit})> ingredients,
   }) async {
     lastCreateRecipeCall = (
       name: name,
@@ -114,11 +115,17 @@ class FakeRecipeRepository implements RecipeRepository {
               return RecipeIngredient(
                 foodId: food.id,
                 foodName: food.name,
-                quantity: ing.quantity,
+                quantity: LoggedQuantityConverter.fromServingMultiplier(
+                  ing.quantity,
+                  servingSize: food.servingSize,
+                  servingUnit: food.servingUnit,
+                ),
                 calories: food.calories * ing.quantity,
                 proteinG: food.proteinG * ing.quantity,
                 carbsG: food.carbsG * ing.quantity,
                 fatG: food.fatG * ing.quantity,
+                servingSize: food.servingSize,
+                servingUnit: food.servingUnit,
               );
             }(),
         ],
@@ -131,7 +138,7 @@ class FakeRecipeRepository implements RecipeRepository {
     required int recipeId,
     required String name,
     required double servings,
-    required List<({int foodId, double quantity})> ingredients,
+    required List<({int foodId, double quantity, String quantityUnit})> ingredients,
   }) async {
     lastUpdateRecipeCall = (
       recipeId: recipeId,
@@ -154,11 +161,17 @@ class FakeRecipeRepository implements RecipeRepository {
             return RecipeIngredient(
               foodId: food.id,
               foodName: food.name,
-              quantity: ing.quantity,
+              quantity: LoggedQuantityConverter.fromServingMultiplier(
+                ing.quantity,
+                servingSize: food.servingSize,
+                servingUnit: food.servingUnit,
+              ),
               calories: food.calories * ing.quantity,
               proteinG: food.proteinG * ing.quantity,
               carbsG: food.carbsG * ing.quantity,
               fatG: food.fatG * ing.quantity,
+              servingSize: food.servingSize,
+              servingUnit: food.servingUnit,
             );
           }(),
       ],
@@ -172,8 +185,8 @@ class FakeRecipeRepository implements RecipeRepository {
   }
 
   @override
-  Future<void> logRecipeToDiary(int recipeId, MealType mealType) async {
-    lastLogRecipeToDiaryCall = (recipeId: recipeId, mealType: mealType);
+  Future<void> logRecipeToDiary(int recipeId, MealType mealType, {double portionQuantity = 1.0}) async {
+    lastLogRecipeToDiaryCall = (recipeId: recipeId, mealType: mealType, portionQuantity: portionQuantity);
   }
 }
 
@@ -182,7 +195,7 @@ abstract final class RecipeIngredientFixture {
   static const chicken = RecipeIngredient(
     foodId: 1,
     foodName: 'Chicken Breast',
-    quantity: 2,
+    quantity: LoggedQuantity(amount: 2.0, unit: 'serving'),
     calories: 330,
     proteinG: 62,
     carbsG: 0,
@@ -192,7 +205,7 @@ abstract final class RecipeIngredientFixture {
   static const rice = RecipeIngredient(
     foodId: 2,
     foodName: 'White Rice',
-    quantity: 1,
+    quantity: LoggedQuantity(amount: 1.0, unit: 'serving'),
     calories: 130,
     proteinG: 2.7,
     carbsG: 28,

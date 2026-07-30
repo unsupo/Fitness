@@ -2,6 +2,8 @@ import 'package:arndt_fitness/core/network/external_link_launcher.dart';
 import 'package:arndt_fitness/core/theme/app_theme.dart';
 import 'package:arndt_fitness/core/widgets/food_thumbnail.dart';
 import 'package:arndt_fitness/features/diary/domain/entities/food_item.dart';
+import 'package:arndt_fitness/core/entities/logged_quantity.dart';
+import 'package:arndt_fitness/features/diary/domain/use_cases/logged_quantity_converter.dart';
 import 'package:arndt_fitness/features/diary/presentation/controllers/diary_providers.dart';
 import 'package:arndt_fitness/features/recipes/domain/entities/recipe.dart';
 import 'package:arndt_fitness/features/recipes/domain/entities/recipe_ingredient.dart';
@@ -28,16 +30,24 @@ class _IngredientDraft {
   /// per-unit [FoodItem] is recovered by dividing back out.
   factory _IngredientDraft.fromIngredient(RecipeIngredient ingredient) {
     final draft = _IngredientDraft();
-    final quantity = ingredient.quantity == 0 ? 1.0 : ingredient.quantity;
+    final quantity = LoggedQuantityConverter.toServingMultiplier(
+      ingredient.quantity,
+      servingSize: ingredient.servingSize,
+      servingUnit: ingredient.servingUnit,
+    );
+    final divisor = quantity == 0.0 ? 1.0 : quantity;
     draft.foodQueryController.text = ingredient.foodName;
-    draft.quantityController.text = _formatNumber(ingredient.quantity);
+    draft.quantityController.text = _formatNumber(ingredient.quantity.amount);
+    draft.selectedUnit = ingredient.quantity.unit;
     draft.selectedFood = FoodItem(
       id: ingredient.foodId,
       name: ingredient.foodName,
-      calories: ingredient.calories / quantity,
-      proteinG: ingredient.proteinG / quantity,
-      carbsG: ingredient.carbsG / quantity,
-      fatG: ingredient.fatG / quantity,
+      calories: ingredient.calories / divisor,
+      proteinG: ingredient.proteinG / divisor,
+      carbsG: ingredient.carbsG / divisor,
+      fatG: ingredient.fatG / divisor,
+      servingSize: ingredient.servingSize,
+      servingUnit: ingredient.servingUnit,
     );
     return draft;
   }
@@ -50,6 +60,7 @@ class _IngredientDraft {
     text: '1',
   );
   FoodItem? selectedFood;
+  String selectedUnit = 'serving';
 
   void dispose() {
     foodQueryController.dispose();
@@ -88,6 +99,7 @@ class _AddRecipePageState extends ConsumerState<AddRecipePage> {
         ]
       : [_IngredientDraft()];
   String? _error;
+  bool _ingredientsExpanded = true;
 
   bool get _isEditing => widget.recipeToEdit != null;
 
@@ -111,16 +123,24 @@ class _AddRecipePageState extends ConsumerState<AddRecipePage> {
     for (final draft in _ingredients) {
       final food = draft.selectedFood;
       if (food == null) continue;
-      final quantity = double.tryParse(draft.quantityController.text) ?? 0;
+      final amount = double.tryParse(draft.quantityController.text) ?? 0;
+      final loggedQty = LoggedQuantity(amount: amount, unit: draft.selectedUnit);
+      final quantity = LoggedQuantityConverter.toServingMultiplier(
+        loggedQty,
+        servingSize: food.servingSize,
+        servingUnit: food.servingUnit,
+      );
       ingredients.add(
         RecipeIngredient(
           foodId: food.id,
           foodName: food.name,
-          quantity: quantity,
+          quantity: loggedQty,
           calories: quantity * food.calories,
           proteinG: quantity * food.proteinG,
           carbsG: quantity * food.carbsG,
           fatG: quantity * food.fatG,
+          servingSize: food.servingSize,
+          servingUnit: food.servingUnit,
         ),
       );
     }
@@ -135,6 +155,13 @@ class _AddRecipePageState extends ConsumerState<AddRecipePage> {
 
   void _addIngredient() {
     setState(() => _ingredients.add(_IngredientDraft()));
+  }
+
+  void _removeIngredient(int index) {
+    setState(() {
+      _ingredients[index].dispose();
+      _ingredients.removeAt(index);
+    });
   }
 
   Future<void> _save() async {
@@ -156,7 +183,15 @@ class _AddRecipePageState extends ConsumerState<AddRecipePage> {
       for (final draft in selected)
         (
           foodId: draft.selectedFood!.id,
-          quantity: double.tryParse(draft.quantityController.text) ?? 0,
+          quantity: LoggedQuantityConverter.toServingMultiplier(
+            LoggedQuantity(
+              amount: double.tryParse(draft.quantityController.text) ?? 0,
+              unit: draft.selectedUnit,
+            ),
+            servingSize: draft.selectedFood!.servingSize,
+            servingUnit: draft.selectedFood!.servingUnit,
+          ),
+          quantityUnit: draft.selectedUnit,
         ),
     ];
 
@@ -266,25 +301,42 @@ class _AddRecipePageState extends ConsumerState<AddRecipePage> {
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 20),
-            Text(
-              'Ingredients',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            InkWell(
+              onTap: () =>
+                  setState(() => _ingredientsExpanded = !_ingredientsExpanded),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Ingredients (${_ingredients.length})',
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  Icon(
+                    _ingredientsExpanded
+                        ? Icons.expand_less
+                        : Icons.expand_more,
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 8),
-            for (var i = 0; i < _ingredients.length; i++)
-              _IngredientRow(
-                key: ValueKey(_ingredients[i].id),
-                index: i,
-                draft: _ingredients[i],
-                onChanged: () => setState(() {}),
+            if (_ingredientsExpanded) ...[
+              for (var i = 0; i < _ingredients.length; i++)
+                _IngredientRow(
+                  key: ValueKey(_ingredients[i].id),
+                  index: i,
+                  draft: _ingredients[i],
+                  onChanged: () => setState(() {}),
+                  onRemove: _ingredients.length > 1 ? () => _removeIngredient(i) : null,
+                ),
+              TextButton.icon(
+                onPressed: _addIngredient,
+                icon: const Icon(Icons.add),
+                label: const Text('Add ingredient'),
               ),
-            TextButton.icon(
-              onPressed: _addIngredient,
-              icon: const Icon(Icons.add),
-              label: const Text('Add ingredient'),
-            ),
+            ],
             const SizedBox(height: 12),
             SectionCard(
               child: Column(
@@ -321,15 +373,18 @@ class _IngredientRow extends ConsumerWidget {
     required this.index,
     required this.draft,
     required this.onChanged,
+    this.onRemove,
   });
 
   final int index;
   final _IngredientDraft draft;
   final VoidCallback onChanged;
+  final VoidCallback? onRemove;
 
   void _selectFood(FoodItem food) {
     draft.selectedFood = food;
     draft.foodQueryController.text = food.name;
+    draft.selectedUnit = food.servingUnit ?? 'serving';
     onChanged();
   }
 
@@ -359,7 +414,7 @@ class _IngredientRow extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               SizedBox(
-                width: 72,
+                width: 60,
                 child: TextField(
                   key: Key('quantity-field-$index'),
                   controller: draft.quantityController,
@@ -370,6 +425,50 @@ class _IngredientRow extends ConsumerWidget {
                   onChanged: (_) => onChanged(),
                 ),
               ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 90,
+                child: StatefulBuilder(
+                  builder: (context, setState) {
+                    final availableUnits = LoggedQuantityConverter.getAvailableUnits(
+                      servingSize: draft.selectedFood?.servingSize,
+                      servingUnit: draft.selectedFood?.servingUnit,
+                    );
+                    if (!availableUnits.contains(draft.selectedUnit)) {
+                      draft.selectedUnit = 'serving';
+                    }
+                    return DropdownButtonFormField<String>(
+                      key: Key('unit-field-$index'),
+                      initialValue: draft.selectedUnit,
+                      decoration: const InputDecoration(
+                        labelText: 'Unit',
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                      ),
+                      isExpanded: true,
+                      items: [
+                        for (final unit in availableUnits)
+                          DropdownMenuItem(value: unit, child: Text(unit, style: const TextStyle(fontSize: 12))),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => draft.selectedUnit = value);
+                          onChanged();
+                        }
+                      },
+                    );
+                  },
+                ),
+              ),
+              if (onRemove != null) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  key: Key('remove-ingredient-$index'),
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  tooltip: 'Remove ingredient',
+                  onPressed: onRemove,
+                ),
+              ],
             ],
           ),
           if (showRecent)

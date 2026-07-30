@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:arndt_fitness/core/network/supabase_tables.dart';
 import 'package:arndt_fitness/features/diary/domain/entities/diary_entry.dart';
+import 'package:arndt_fitness/core/entities/logged_quantity.dart';
 import 'package:arndt_fitness/features/diary/presentation/controllers/diary_providers.dart';
 import 'package:arndt_fitness/features/diary/presentation/widgets/edit_diary_entry_dialog.dart';
 
@@ -15,7 +16,7 @@ void main() {
     loggedAt: DateTime(2026, 7, 21, 8, 36),
     mealType: MealType.breakfast,
     foodName: 'BBQ Pringles',
-    quantity: 0.5,
+    quantity: const LoggedQuantity(amount: 0.5, unit: 'serving'),
     calories: 75,
     proteinG: 0.5,
     carbsG: 7.5,
@@ -54,7 +55,8 @@ void main() {
 
       expect(fake.lastUpdatedEntry, isNotNull);
       expect(fake.lastUpdatedEntry!.id, 7);
-      expect(fake.lastUpdatedEntry!.quantity, 1.0);
+      expect(fake.lastUpdatedEntry!.quantity.amount, 1.0);
+      expect(fake.lastUpdatedEntry!.quantity.unit, 'serving');
       expect(fake.lastUpdatedEntry!.calories, 150);
       expect(fake.lastUpdatedEntry!.proteinG, 1.0);
     },
@@ -75,7 +77,8 @@ void main() {
 
     expect(fake.lastUpdatedEntry!.mealType, MealType.dinner);
     // Quantity/macros unchanged when only meal type is edited.
-    expect(fake.lastUpdatedEntry!.quantity, 0.5);
+    expect(fake.lastUpdatedEntry!.quantity.amount, 0.5);
+    expect(fake.lastUpdatedEntry!.quantity.unit, 'serving');
     expect(fake.lastUpdatedEntry!.calories, 75);
   });
 

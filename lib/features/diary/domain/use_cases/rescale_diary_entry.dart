@@ -1,18 +1,26 @@
 import '../entities/diary_entry.dart';
+import '../../../../core/entities/logged_quantity.dart';
+import 'logged_quantity_converter.dart';
 
-/// Returns a copy of [entry] with [newQuantity] and calories/macros scaled
-/// by the same ratio (`newQuantity / entry.quantity`).
-///
-/// Works uniformly for both food-based and recipe-based entries: `food_log`
-/// always stores the already-computed total for the logged quantity (not a
-/// per-unit value), so scaling by ratio is correct without needing to know
-/// which food or recipe underlies the entry.
-DiaryEntry rescaleDiaryEntry(DiaryEntry entry, {required double newQuantity}) {
-  if (newQuantity <= 0) {
-    throw ArgumentError.value(newQuantity, 'newQuantity', 'must be positive');
+/// Returns a copy of [entry] with [newQuantity] and calories/macros scaled.
+DiaryEntry rescaleDiaryEntry(DiaryEntry entry, {required LoggedQuantity newQuantity}) {
+  if (newQuantity.amount <= 0) {
+    throw ArgumentError.value(newQuantity.amount, 'newQuantity.amount', 'must be positive');
   }
 
-  final ratio = newQuantity / entry.quantity;
+  final oldMultiplier = LoggedQuantityConverter.toServingMultiplier(
+    entry.quantity,
+    servingSize: entry.servingSize,
+    servingUnit: entry.servingUnit,
+  );
+
+  final newMultiplier = LoggedQuantityConverter.toServingMultiplier(
+    newQuantity,
+    servingSize: entry.servingSize,
+    servingUnit: entry.servingUnit,
+  );
+
+  final ratio = oldMultiplier == 0.0 ? 1.0 : newMultiplier / oldMultiplier;
 
   return DiaryEntry(
     id: entry.id,
@@ -25,5 +33,8 @@ DiaryEntry rescaleDiaryEntry(DiaryEntry entry, {required double newQuantity}) {
     proteinG: entry.proteinG * ratio,
     carbsG: entry.carbsG * ratio,
     fatG: entry.fatG * ratio,
+    servingSize: entry.servingSize,
+    servingUnit: entry.servingUnit,
+    imageUrl: entry.imageUrl,
   );
 }

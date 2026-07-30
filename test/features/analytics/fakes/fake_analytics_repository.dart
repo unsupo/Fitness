@@ -40,6 +40,9 @@ class FakeAnalyticsRepository implements AnalyticsRepository {
     (i) => DailyCalories(
       date: DateTime(2026, 7, 20 + i),
       totalCalories: 1800 + (i * 50),
+      proteinG: 120 + (i * 5),
+      carbsG: 200 + (i * 10),
+      fatG: 70 + (i * 2),
     ),
   );
 

@@ -1,10 +1,9 @@
-import 'package:arndt_fitness/core/network/supabase_tables.dart';
 import 'package:arndt_fitness/core/theme/app_theme.dart';
 import 'package:arndt_fitness/core/widgets/app_drawer.dart';
-import 'package:arndt_fitness/features/diary/presentation/controllers/diary_providers.dart';
 import 'package:arndt_fitness/features/recipes/domain/entities/recipe.dart';
 import 'package:arndt_fitness/features/recipes/domain/use_cases/compute_recipe_totals.dart';
 import 'package:arndt_fitness/features/recipes/presentation/controllers/recipes_providers.dart';
+import 'package:arndt_fitness/features/recipes/presentation/widgets/log_recipe_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -59,10 +58,38 @@ class _RecipesListBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (recipes.isEmpty) {
-      return const Center(
-        child: Text(
-          'No recipes yet',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: SectionCard(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.menu_book_outlined,
+                size: 40,
+                color: AppColors.textSecondary,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No recipes yet',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Create a custom recipe to easily log your favorite meals and ingredients.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 12),
+              TextButton.icon(
+                onPressed: () => context.push('/recipes/add'),
+                icon: const Icon(Icons.add),
+                label: const Text('Add recipe'),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -105,19 +132,7 @@ class _RecipesListBody extends ConsumerWidget {
               Align(
                 alignment: Alignment.centerRight,
                 child: FilledButton(
-                  onPressed: () async {
-                    await ref
-                        .read(recipeRepositoryProvider)
-                        .logRecipeToDiary(recipe.id, MealType.snack);
-                    ref.invalidate(recipesListProvider);
-                    // Crosses into the diary feature deliberately: logging a
-                    // recipe changes what the diary shows, so its cached
-                    // entries (for every date) must be invalidated too.
-                    ref.invalidate(diaryEntriesProvider);
-                    if (context.mounted && Navigator.of(context).canPop()) {
-                      Navigator.of(context).pop();
-                    }
-                  },
+                  onPressed: () => showLogRecipeDialog(context, recipe),
                   child: const Text('Log to diary'),
                 ),
               ),

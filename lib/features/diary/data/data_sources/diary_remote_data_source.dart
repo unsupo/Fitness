@@ -50,6 +50,7 @@ class DiaryRemoteDataSource {
   Future<void> updateEntry({
     required int id,
     required double quantity,
+    required String quantityUnit,
     required String mealType,
     required DateTime loggedAt,
     required double calories,
@@ -61,6 +62,7 @@ class DiaryRemoteDataSource {
         .from(SupabaseTables.foodLog)
         .update({
           'quantity': quantity,
+          'quantity_unit': quantityUnit,
           'meal_type': mealType,
           'logged_at': loggedAt.toUtc().toIso8601String(),
           'calories': calories,
@@ -100,5 +102,9 @@ class DiaryRemoteDataSource {
         .insert(row)
         .select()
         .single();
+  }
+
+  Future<void> insertFoodLog(Map<String, dynamic> row) async {
+    await _client.from(SupabaseTables.foodLog).insert(row);
   }
 }

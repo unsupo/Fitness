@@ -61,6 +61,10 @@ void main() {
       await tester.tap(find.text('Log to diary'));
       await tester.pumpAndSettle();
 
+      // Confirm in the LogRecipeDialog
+      await tester.tap(find.widgetWithText(FilledButton, 'Log'));
+      await tester.pumpAndSettle();
+
       expect(fake.lastLogRecipeToDiaryCall?.recipeId, 1);
     });
   });

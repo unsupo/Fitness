@@ -52,12 +52,15 @@ class MealSection extends ConsumerWidget {
                       onPressed: () =>
                           showEditDiaryEntryDialog(context, ref, entry),
                     ),
-                    if (entry.foodId != null) const Icon(Icons.chevron_right),
+                    if (entry.foodId != null || entry.recipeId != null)
+                      const Icon(Icons.chevron_right),
                   ],
                 ),
-                onTap: entry.foodId == null
-                    ? null
-                    : () => context.push('/food-detail/${entry.foodId}'),
+                onTap: entry.foodId != null
+                    ? () => context.push('/food-detail/${entry.foodId}')
+                    : entry.recipeId != null
+                    ? () => context.push('/recipes/detail/${entry.recipeId}')
+                    : null,
               ),
             ),
           const SizedBox(height: 4),

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/supabase_tables.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/diary_entry.dart';
+import '../../../../core/entities/logged_quantity.dart';
+import '../../domain/use_cases/logged_quantity_converter.dart';
 import '../../domain/use_cases/rescale_diary_entry.dart';
 import '../controllers/diary_providers.dart';
 
@@ -17,29 +19,59 @@ Future<void> showEditDiaryEntryDialog(
   DiaryEntry entry,
 ) {
   final quantityController = TextEditingController(
-    text: _trimTrailingZeros(entry.quantity),
+    text: _trimTrailingZeros(entry.quantity.amount),
   );
   var mealType = entry.mealType;
   var loggedAt = entry.loggedAt;
+  var selectedUnit = entry.quantity.unit;
 
   return showDialog<void>(
     context: context,
     builder: (dialogContext) {
       return StatefulBuilder(
         builder: (dialogContext, setState) {
+          final availableUnits = LoggedQuantityConverter.getAvailableUnits(
+            servingSize: entry.servingSize,
+            servingUnit: entry.servingUnit,
+          );
+
           return AlertDialog(
             title: Text(entry.foodName),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextField(
-                  key: const Key('edit-quantity-field'),
-                  controller: quantityController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(labelText: 'Quantity'),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: TextField(
+                        key: const Key('edit-quantity-field'),
+                        controller: quantityController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(labelText: 'Quantity'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 3,
+                      child: DropdownButtonFormField<String>(
+                        key: const Key('edit-quantity-unit-dropdown'),
+                        initialValue: selectedUnit,
+                        decoration: const InputDecoration(labelText: 'Unit'),
+                        items: [
+                          for (final unit in availableUnits)
+                            DropdownMenuItem(value: unit, child: Text(unit)),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) setState(() => selectedUnit = value);
+                        },
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<MealType>(
@@ -99,8 +131,10 @@ Future<void> showEditDiaryEntryDialog(
               ),
               TextButton(
                 onPressed: () async {
-                  final newQuantity = double.tryParse(quantityController.text);
-                  if (newQuantity == null || newQuantity <= 0) return;
+                  final newAmount = double.tryParse(quantityController.text);
+                  if (newAmount == null || newAmount <= 0) return;
+
+                  final newQuantity = LoggedQuantity(amount: newAmount, unit: selectedUnit);
 
                   var updated = entry;
                   if (newQuantity != entry.quantity) {
@@ -117,6 +151,9 @@ Future<void> showEditDiaryEntryDialog(
                     proteinG: updated.proteinG,
                     carbsG: updated.carbsG,
                     fatG: updated.fatG,
+                    servingSize: entry.servingSize,
+                    servingUnit: entry.servingUnit,
+                    imageUrl: entry.imageUrl,
                   );
 
                   await ref.read(diaryRepositoryProvider).updateEntry(updated);

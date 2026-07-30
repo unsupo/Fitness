@@ -167,4 +167,39 @@ void main() {
       expect(find.text('BBQ Pringles (updated)'), findsOneWidget);
     },
   );
+
+  testWidgets('shows projected daily totals preview and logs food on tap', (
+    tester,
+  ) async {
+    final fake = FakeDiaryRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [diaryRepositoryProvider.overrideWithValue(fake)],
+        child: const MaterialApp(home: FoodDetailPage(foodId: 3)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify projected card shows up
+    expect(find.text('Projected Daily Totals'), findsOneWidget);
+
+    // Initial state: current (FakeDiaryRepository default has 3 entries: 300+450+95 = 845 kcal)
+    // Projected is 845 + 100 = 945 kcal.
+    expect(find.textContaining('845 → 945'), findsOneWidget);
+
+    // Enter a new quantity: 2
+    await tester.enterText(find.byType(TextField).first, '2');
+    await tester.pumpAndSettle();
+
+    // Projected becomes 845 + 200 = 1045 kcal.
+    expect(find.textContaining('845 → 1045'), findsOneWidget);
+
+    // Tap "Add to Log"
+    await tester.tap(find.text('Add to Log'));
+    await tester.pumpAndSettle();
+
+    expect(fake.lastLoggedFoodId, 3);
+    expect(fake.lastLoggedQuantity?.amount, 2.0);
+  });
 }

@@ -67,12 +67,13 @@ foods(id, name, brand, serving_size, serving_unit, calories, protein_g, carbs_g,
       fat_g, fiber_g, sugar_g, sodium_mg, micros jsonb, source, is_estimate,
       created_at, image_url, source_url)
 
-food_log(id, logged_at, food_id -> foods.id, quantity, calories, protein_g,
-         carbs_g, fat_g, notes, recipe_id -> recipes.id, sodium_mg, micros jsonb,
-         meal_type text check in ('breakfast','lunch','dinner','snack'))
+food_log(id, logged_at, food_id -> foods.id, quantity, quantity_unit, calories,
+         protein_g, carbs_g, fat_g, notes, recipe_id -> recipes.id, sodium_mg,
+         micros jsonb, meal_type text check in ('breakfast','lunch','dinner','snack'))
 
 recipes(id, name, servings, is_estimate, source, created_at)
-recipe_ingredients(id, recipe_id -> recipes.id, food_id -> foods.id, quantity)
+recipe_ingredients(id, recipe_id -> recipes.id, food_id -> foods.id, quantity,
+                    quantity_unit)
 
 daily_goals(id, calorie_goal, protein_goal_g, carbs_goal_g, fat_goal_g, updated_at)
   -- single row, single-user app for now

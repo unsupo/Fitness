@@ -10,7 +10,7 @@ class RecipesRemoteDataSource {
   final SupabaseClient _client;
 
   static const _recipeSelect =
-      '*, recipe_ingredients(quantity, foods(id, name, calories, protein_g, carbs_g, fat_g))';
+      '*, recipe_ingredients(quantity, quantity_unit, foods(id, name, calories, protein_g, carbs_g, fat_g, serving_size, serving_unit))';
 
   Future<List<Map<String, dynamic>>> getRecipes() async {
     final rows = await _client
@@ -54,7 +54,7 @@ class RecipesRemoteDataSource {
 
   Future<void> insertRecipeIngredients(
     int recipeId,
-    List<({int foodId, double quantity})> ingredients,
+    List<({int foodId, double quantity, String quantityUnit})> ingredients,
   ) async {
     await _client.from(SupabaseTables.recipeIngredients).insert([
       for (final ingredient in ingredients)
@@ -62,6 +62,7 @@ class RecipesRemoteDataSource {
           'recipe_id': recipeId,
           'food_id': ingredient.foodId,
           'quantity': ingredient.quantity,
+          'quantity_unit': ingredient.quantityUnit,
         },
     ]);
   }
@@ -86,7 +87,7 @@ class RecipesRemoteDataSource {
   /// is re-submitted on every save.
   Future<void> replaceRecipeIngredients(
     int recipeId,
-    List<({int foodId, double quantity})> ingredients,
+    List<({int foodId, double quantity, String quantityUnit})> ingredients,
   ) async {
     await _client
         .from(SupabaseTables.recipeIngredients)

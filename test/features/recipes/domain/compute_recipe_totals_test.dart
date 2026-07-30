@@ -1,3 +1,4 @@
+import 'package:arndt_fitness/core/entities/logged_quantity.dart';
 import 'package:arndt_fitness/features/recipes/domain/entities/recipe.dart';
 import 'package:arndt_fitness/features/recipes/domain/entities/recipe_ingredient.dart';
 import 'package:arndt_fitness/features/recipes/domain/use_cases/compute_recipe_totals.dart';
@@ -12,7 +13,7 @@ Recipe _recipe({required double servings}) {
       RecipeIngredient(
         foodId: 1,
         foodName: 'Chicken Breast',
-        quantity: 2,
+        quantity: LoggedQuantity(amount: 2, unit: 'serving'),
         calories: 330,
         proteinG: 62,
         carbsG: 0,
@@ -21,7 +22,7 @@ Recipe _recipe({required double servings}) {
       RecipeIngredient(
         foodId: 2,
         foodName: 'White Rice',
-        quantity: 1.5,
+        quantity: LoggedQuantity(amount: 1.5, unit: 'serving'),
         calories: 195,
         proteinG: 4.5,
         carbsG: 42,
@@ -30,7 +31,7 @@ Recipe _recipe({required double servings}) {
       RecipeIngredient(
         foodId: 3,
         foodName: 'Olive Oil',
-        quantity: 1,
+        quantity: LoggedQuantity(amount: 1, unit: 'serving'),
         calories: 120,
         proteinG: 0,
         carbsG: 0,

@@ -11,6 +11,8 @@ class MacroRing extends StatelessWidget {
     required this.progress,
     required this.color,
     this.size = 64,
+    this.actualGrams,
+    this.targetGrams,
   });
 
   final String label;
@@ -19,6 +21,12 @@ class MacroRing extends StatelessWidget {
   final double progress;
   final Color color;
   final double size;
+
+  /// When both are given, shown as a "64g / 120g" caption under [label] —
+  /// the percent alone doesn't say how much that actually is. Omitted
+  /// entirely (no caption) when either is null.
+  final double? actualGrams;
+  final double? targetGrams;
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +61,14 @@ class MacroRing extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(label, style: Theme.of(context).textTheme.bodyMedium),
+        if (actualGrams != null && targetGrams != null)
+          Text(
+            '${actualGrams!.round()}g / ${targetGrams!.round()}g',
+            style: TextStyle(
+              fontSize: 11,
+              color: Theme.of(context).textTheme.bodySmall?.color,
+            ),
+          ),
       ],
     );
   }
