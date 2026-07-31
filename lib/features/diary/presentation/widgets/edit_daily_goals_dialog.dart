@@ -7,8 +7,10 @@ import '../../../analytics/domain/use_cases/estimate_tdee.dart';
 import '../../../analytics/domain/use_cases/weight_unit.dart';
 import '../../../analytics/presentation/controllers/analytics_providers.dart';
 import '../../domain/entities/daily_goals.dart';
+import '../../domain/use_cases/macro_calorie_split.dart';
 import '../../../profile/domain/use_cases/weekly_rate_calorie_goal.dart';
 import '../controllers/diary_providers.dart';
+import 'adjustable_macro_pie_chart.dart';
 
 /// Edits the plain daily calorie/macro targets on the single `daily_goals`
 /// row. Distinct from `showEditWeightGoalDialog` (analytics feature), which
@@ -19,18 +21,59 @@ Future<void> showEditDailyGoalsDialog(
   WidgetRef ref,
   DailyGoals current,
 ) {
-  String display(double value) =>
-      value == value.roundToDouble() ? value.toInt().toString() : value.toString();
+  String display(double value) => value == value.roundToDouble()
+      ? value.toInt().toString()
+      : value.toString();
 
-  final calorieController = TextEditingController(text: display(current.calorieGoal));
-  final proteinController = TextEditingController(text: display(current.proteinGoalG));
-  final carbsController = TextEditingController(text: display(current.carbsGoalG));
-  final fatController = TextEditingController(text: display(current.fatGoalG));
+  final calorieController = TextEditingController(
+    text: display(current.calorieGoal),
+  );
   var error = '';
 
   // Store whether we initialized the slider value to prevent resetting on every state rebuild
   var sliderInitialized = false;
   var sliderVal = 0.0;
+
+  // The macro pie's own state — grams, kept in sync with calorieController
+  // (see _rescaleMacrosToCalories below) so the pie's total always equals
+  // the calorie goal, not just whatever the macros happen to sum to.
+  var proteinG = current.proteinGoalG;
+  var carbsG = current.carbsGoalG;
+  var fatG = current.fatGoalG;
+
+  /// Rescales the macro split proportionally so its kcal total matches
+  /// [newCalorieGoal] exactly, preserving the current percentage split —
+  /// called whenever the calorie goal changes (typed or via the weekly-rate
+  /// slider), so the pie chart never drifts out of sync with its own total.
+  void rescaleMacrosToCalories(double newCalorieGoal) {
+    final split = macroCalorieSplitFromGrams(
+      proteinG: proteinG,
+      carbsG: carbsG,
+      fatG: fatG,
+    );
+    if (split.totalKcal <= 0) return;
+    final scale = newCalorieGoal / split.totalKcal;
+    final rescaled = macroGramsFromCalorieSplit(
+      MacroCalorieSplit(
+        proteinKcal: split.proteinKcal * scale,
+        carbsKcal: split.carbsKcal * scale,
+        fatKcal: split.fatKcal * scale,
+      ),
+    );
+    proteinG = rescaled.proteinG;
+    carbsG = rescaled.carbsG;
+    fatG = rescaled.fatG;
+  }
+
+  void setMacroGrams({
+    required double protein,
+    required double carbs,
+    required double fat,
+  }) {
+    proteinG = protein;
+    carbsG = carbs;
+    fatG = fat;
+  }
 
   return showDialog<void>(
     context: context,
@@ -45,7 +88,8 @@ Future<void> showEditDailyGoalsDialog(
               final profile = profileAsync.asData?.value;
               final history = weightHistoryAsync.asData?.value;
 
-              final hasTdeeInputs = profile != null && profile.isCompleteForTdee;
+              final hasTdeeInputs =
+                  profile != null && profile.isCompleteForTdee;
               final hasWeightHistory = history != null && history.isNotEmpty;
               final canCalculate = hasTdeeInputs && hasWeightHistory;
 
@@ -57,10 +101,13 @@ Future<void> showEditDailyGoalsDialog(
 
               if (canCalculate) {
                 final weeklyAverages = computeWeeklyAverages(history);
-                final currentWeightKg = weeklyAverages.isNotEmpty 
-                    ? weeklyAverages.last.avgWeightKg 
+                final currentWeightKg = weeklyAverages.isNotEmpty
+                    ? weeklyAverages.last.avgWeightKg
                     : history.last.weightKg;
-                tdee = estimateTdee(profile: profile, weightKg: currentWeightKg);
+                tdee = estimateTdee(
+                  profile: profile,
+                  weightKg: currentWeightKg,
+                );
 
                 unit = weightUnitFor(profile.unitSystem);
                 if (profile.unitSystem == 'us') {
@@ -70,11 +117,19 @@ Future<void> showEditDailyGoalsDialog(
                 }
 
                 if (!sliderInitialized) {
-                  final initialCalories = double.tryParse(calorieController.text) ?? current.calorieGoal;
-                  final initialRateKg = weeklyRateForCalorieGoal(tdee: tdee, calorieGoal: initialCalories);
-                  final initialRateDisplay = unit == 'lb' ? kgToLb(initialRateKg) : initialRateKg;
+                  final initialCalories =
+                      double.tryParse(calorieController.text) ??
+                      current.calorieGoal;
+                  final initialRateKg = weeklyRateForCalorieGoal(
+                    tdee: tdee,
+                    calorieGoal: initialCalories,
+                  );
+                  final initialRateDisplay = unit == 'lb'
+                      ? kgToLb(initialRateKg)
+                      : initialRateKg;
                   // Round to nearest 0.25 and clamp
-                  sliderVal = ((initialRateDisplay / 0.25).round() * 0.25).clamp(sliderMin, sliderMax);
+                  sliderVal = ((initialRateDisplay / 0.25).round() * 0.25)
+                      .clamp(sliderMin, sliderMax);
                   sliderInitialized = true;
                 }
               }
@@ -89,39 +144,57 @@ Future<void> showEditDailyGoalsDialog(
                       TextField(
                         key: const Key('goals-calorie-field'),
                         controller: calorieController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'Calories'),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Calories',
+                        ),
                         onChanged: (text) {
-                          if (canCalculate && tdee != null) {
-                            final val = double.tryParse(text);
-                            if (val != null && val > 0) {
-                              final rateKg = weeklyRateForCalorieGoal(tdee: tdee, calorieGoal: val);
-                              final rateDisplay = unit == 'lb' ? kgToLb(rateKg) : rateKg;
-                              setState(() {
-                                sliderVal = ((rateDisplay / 0.25).round() * 0.25).clamp(sliderMin, sliderMax);
-                              });
+                          final val = double.tryParse(text);
+                          if (val == null || val <= 0) return;
+                          setState(() {
+                            rescaleMacrosToCalories(val);
+                            if (canCalculate && tdee != null) {
+                              final rateKg = weeklyRateForCalorieGoal(
+                                tdee: tdee,
+                                calorieGoal: val,
+                              );
+                              final rateDisplay = unit == 'lb'
+                                  ? kgToLb(rateKg)
+                                  : rateKg;
+                              sliderVal = ((rateDisplay / 0.25).round() * 0.25)
+                                  .clamp(sliderMin, sliderMax);
                             }
-                          }
+                          });
                         },
                       ),
                       if (canCalculate && tdee != null) ...[
                         const SizedBox(height: 16),
                         Text(
                           'Estimated TDEE: ${tdee.round()} kcal',
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Weekly Rate', style: TextStyle(color: AppColors.textSecondary)),
+                            const Text(
+                              'Weekly Rate',
+                              style: TextStyle(color: AppColors.textSecondary),
+                            ),
                             Text(
                               sliderVal == 0.0
                                   ? 'Maintain weight'
                                   : sliderVal < 0
-                                      ? 'Lose ${sliderVal.abs().toStringAsFixed(2)} $unit/week'
-                                      : 'Gain ${sliderVal.toStringAsFixed(2)} $unit/week',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ? 'Lose ${sliderVal.abs().toStringAsFixed(2)} $unit/week'
+                                  : 'Gain ${sliderVal.toStringAsFixed(2)} $unit/week',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
@@ -135,8 +208,14 @@ Future<void> showEditDailyGoalsDialog(
                             setState(() {
                               sliderVal = val;
                               final rateKg = unit == 'lb' ? lbToKg(val) : val;
-                              final newCal = calorieGoalForWeeklyRate(tdee: tdee!, weeklyRateKg: rateKg);
-                              calorieController.text = newCal.round().toString();
+                              final newCal = calorieGoalForWeeklyRate(
+                                tdee: tdee!,
+                                weeklyRateKg: rateKg,
+                              );
+                              calorieController.text = newCal
+                                  .round()
+                                  .toString();
+                              rescaleMacrosToCalories(newCal);
                             });
                           },
                         ),
@@ -153,30 +232,71 @@ Future<void> showEditDailyGoalsDialog(
                             !hasTdeeInputs
                                 ? 'Add sex, age, height, and activity level to your profile to enable the weekly rate calculator.'
                                 : 'Log your weight to enable the weekly rate calculator.',
-                            style: TextStyle(color: Colors.amber.shade900, fontSize: 12),
+                            style: TextStyle(
+                              color: Colors.amber.shade900,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ],
-                      const SizedBox(height: 12),
-                      TextField(
-                        key: const Key('goals-protein-field'),
-                        controller: proteinController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'Protein (g)'),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Macro split',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const Text(
+                        'Drag the ring to adjust — the pie always totals '
+                        'your calorie goal.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Center(
+                        child: AdjustableMacroPieChart(
+                          key: const Key('macro-pie-chart'),
+                          proteinG: proteinG,
+                          carbsG: carbsG,
+                          fatG: fatG,
+                          onChanged:
+                              ({
+                                required double proteinG,
+                                required double carbsG,
+                                required double fatG,
+                              }) {
+                                setState(() {
+                                  // The callback's params shadow the outer
+                                  // proteinG/carbsG/fatG on purpose (matches
+                                  // the widget's own parameter names) — assign
+                                  // through the dialog-scoped setter fields.
+                                  setMacroGrams(
+                                    protein: proteinG,
+                                    carbs: carbsG,
+                                    fat: fatG,
+                                  );
+                                });
+                              },
+                        ),
                       ),
                       const SizedBox(height: 12),
-                      TextField(
-                        key: const Key('goals-carbs-field'),
-                        controller: carbsController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'Carbs (g)'),
+                      _MacroLegendRow(
+                        key: const Key('goals-protein-legend'),
+                        color: AppColors.proteinRing,
+                        label: 'Protein',
+                        grams: proteinG,
                       ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        key: const Key('goals-fat-field'),
-                        controller: fatController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'Fat (g)'),
+                      _MacroLegendRow(
+                        key: const Key('goals-carbs-legend'),
+                        color: AppColors.carbsRing,
+                        label: 'Carbs',
+                        grams: carbsG,
+                      ),
+                      _MacroLegendRow(
+                        key: const Key('goals-fat-legend'),
+                        color: AppColors.fatRing,
+                        label: 'Fat',
+                        grams: fatG,
                       ),
                       if (error.isNotEmpty) ...[
                         const SizedBox(height: 8),
@@ -193,33 +313,38 @@ Future<void> showEditDailyGoalsDialog(
                   TextButton(
                     onPressed: () async {
                       final calories = double.tryParse(calorieController.text);
-                      final protein = double.tryParse(proteinController.text);
-                      final carbs = double.tryParse(carbsController.text);
-                      final fat = double.tryParse(fatController.text);
 
-                      if (calories == null ||
-                          protein == null ||
-                          carbs == null ||
-                          fat == null ||
-                          calories <= 0) {
-                        setState(() => error = 'Enter valid numbers for every field.');
+                      if (calories == null || calories <= 0) {
+                        setState(
+                          () => error = 'Enter a valid number of calories.',
+                        );
                         return;
                       }
 
-                      await ref.read(diaryRepositoryProvider).updateDailyGoals(
-                        DailyGoals(
-                          calorieGoal: calories,
-                          proteinGoalG: protein,
-                          carbsGoalG: carbs,
-                          fatGoalG: fat,
-                        ),
-                      );
+                      final protein = proteinG;
+                      final carbs = carbsG;
+                      final fat = fatG;
+
+                      await ref
+                          .read(diaryRepositoryProvider)
+                          .updateDailyGoals(
+                            DailyGoals(
+                              calorieGoal: calories,
+                              proteinGoalG: protein,
+                              carbsGoalG: carbs,
+                              fatGoalG: fat,
+                            ),
+                          );
                       ref.invalidate(dailyGoalsProvider);
                       // Invalidate calorieGoalProvider (analytics feature) as well so they are in sync
                       ref.invalidate(calorieGoalProvider);
-                      if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+                      if (dialogContext.mounted) {
+                        Navigator.of(dialogContext).pop();
+                      }
                     },
-                    style: TextButton.styleFrom(foregroundColor: AppColors.brandGreen),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.brandGreen,
+                    ),
                     child: const Text('Save'),
                   ),
                 ],
@@ -230,4 +355,41 @@ Future<void> showEditDailyGoalsDialog(
       );
     },
   );
+}
+
+/// One row of the macro pie's legend — a color dot, label, and live gram
+/// value, updated as the pie is dragged.
+class _MacroLegendRow extends StatelessWidget {
+  const _MacroLegendRow({
+    super.key,
+    required this.color,
+    required this.label,
+    required this.grams,
+  });
+
+  final Color color;
+  final String label;
+  final double grams;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label)),
+          Text(
+            '${grams.round()}g',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
 }

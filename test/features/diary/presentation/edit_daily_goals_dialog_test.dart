@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -41,50 +43,89 @@ void main() {
     return fake;
   }
 
-  testWidgets('pre-fills fields from the current goals', (tester) async {
-    await pumpDialog(tester);
+  testWidgets(
+    'pre-fills the calorie field and the macro legend from the current goals',
+    (tester) async {
+      await pumpDialog(tester);
 
-    final calorieField = tester.widget<TextField>(
-      find.byKey(const Key('goals-calorie-field')),
-    );
-    final proteinField = tester.widget<TextField>(
-      find.byKey(const Key('goals-protein-field')),
-    );
-    final carbsField = tester.widget<TextField>(
-      find.byKey(const Key('goals-carbs-field')),
-    );
-    final fatField = tester.widget<TextField>(
-      find.byKey(const Key('goals-fat-field')),
-    );
+      final calorieField = tester.widget<TextField>(
+        find.byKey(const Key('goals-calorie-field')),
+      );
+      expect(calorieField.controller!.text, '2000');
 
-    expect(calorieField.controller!.text, '2000');
-    expect(proteinField.controller!.text, '150');
-    expect(carbsField.controller!.text, '200');
-    expect(fatField.controller!.text, '65');
-  });
+      expect(find.byKey(const Key('macro-pie-chart')), findsOneWidget);
+      expect(find.text('150g'), findsOneWidget);
+      expect(find.text('200g'), findsOneWidget);
+      expect(find.text('65g'), findsOneWidget);
+    },
+  );
 
-  testWidgets('saving calls updateDailyGoals with the edited values', (
-    tester,
-  ) async {
-    final fake = await pumpDialog(tester);
+  testWidgets(
+    'editing only the calorie field rescales the macro split '
+    'proportionally, so the pie always totals the new goal',
+    (tester) async {
+      final fake = await pumpDialog(tester);
 
-    await tester.enterText(
-      find.byKey(const Key('goals-calorie-field')),
-      '2200',
-    );
-    await tester.enterText(
-      find.byKey(const Key('goals-protein-field')),
-      '160',
-    );
+      await tester.enterText(
+        find.byKey(const Key('goals-calorie-field')),
+        '2200',
+      );
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
+      expect(fake.goals.calorieGoal, 2200);
+      // Original split: 600/800/585 kcal (protein/carbs/fat), scaled by
+      // 2200/1985 to keep the same percentages at the new total.
+      const scale = 2200 / 1985;
+      expect(fake.goals.proteinGoalG, closeTo(150 * scale, 0.1));
+      expect(fake.goals.carbsGoalG, closeTo(200 * scale, 0.1));
+      expect(fake.goals.fatGoalG, closeTo(65 * scale, 0.1));
+    },
+  );
 
-    expect(fake.goals.calorieGoal, 2200);
-    expect(fake.goals.proteinGoalG, 160);
-    expect(fake.goals.carbsGoalG, 200);
-    expect(fake.goals.fatGoalG, 65);
-  });
+  testWidgets(
+    'dragging the macro pie chart and saving persists the new split',
+    (tester) async {
+      final fake = await pumpDialog(tester);
+
+      // Same geometry convention as adjustable_macro_pie_chart_test.dart:
+      // angle 0 = 12 o'clock, clockwise, at 80% of the chart's radius.
+      const chartSize = 220.0;
+      const chartCenter = Offset(chartSize / 2, chartSize / 2);
+      Offset pointAt(double angle) =>
+          chartCenter +
+          Offset(
+            chartSize / 2 * 0.8 * math.sin(angle),
+            -chartSize / 2 * 0.8 * math.cos(angle),
+          );
+
+      final topLeft = tester.getTopLeft(
+        find.byKey(const Key('macro-pie-chart')),
+      );
+      // Starting split: 600/800/585 kcal -> proteinCarbs boundary at
+      // 600/1985 * 2π.
+      final boundaryAngle = 600 / 1985 * 2 * math.pi;
+      final startPoint = topLeft + pointAt(boundaryAngle);
+      final endPoint = topLeft + pointAt(boundaryAngle + math.pi / 6);
+
+      final gesture = await tester.startGesture(startPoint);
+      await tester.pump();
+      await gesture.moveTo(endPoint);
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      // Calorie field itself wasn't touched; protein grew, carbs shrank,
+      // fat untouched.
+      expect(fake.goals.calorieGoal, closeTo(2000, 0.01));
+      expect(fake.goals.proteinGoalG, greaterThan(150));
+      expect(fake.goals.carbsGoalG, lessThan(200));
+      expect(fake.goals.fatGoalG, closeTo(65, 0.1));
+    },
+  );
 
   testWidgets('does not save when a field is invalid/empty', (tester) async {
     final fake = await pumpDialog(tester);
