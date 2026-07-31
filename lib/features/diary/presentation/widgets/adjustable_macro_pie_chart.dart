@@ -186,24 +186,23 @@ class _MacroPiePainter extends CustomPainter {
       );
     }
 
-    // Each slice's name, in that slice's own color, at the arc's midpoint —
-    // so the color-to-macro mapping is legible directly on the chart, not
-    // only via the legend underneath.
+    // Each slice's name, in that slice's own color, just outside the ring
+    // at the arc's midpoint — placed on the plain background rather than
+    // on top of the colored stroke itself, so the color reads cleanly
+    // instead of blending into a same-hue ring. Drawn even for a 0% slice
+    // (e.g. keto's 0 carbs) — its "midpoint" is just its start angle, still
+    // a real, meaningful place to label.
+    final labelRadius = radius + _strokeWidth / 2 + 10;
     void drawLabel(String text, double startFraction, double sweepFraction, Color color) {
-      if (sweepFraction <= 0) return;
       final midAngle = -pi / 2 + (startFraction + sweepFraction / 2) * 2 * pi;
-      final point = center + Offset(cos(midAngle), sin(midAngle)) * radius;
+      final point = center + Offset(cos(midAngle), sin(midAngle)) * labelRadius;
       final painter = TextPainter(
         text: TextSpan(
           text: text,
           style: TextStyle(
             color: color,
             fontWeight: FontWeight.w800,
-            fontSize: 12,
-            shadows: const [
-              Shadow(color: Colors.white, blurRadius: 3),
-              Shadow(color: Colors.white, blurRadius: 3),
-            ],
+            fontSize: 13,
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -214,6 +213,26 @@ class _MacroPiePainter extends CustomPainter {
       );
     }
 
+    // A small white knob on the ring at each of the 3 boundaries, drawn
+    // regardless of how small (even zero) the slices on either side are.
+    // Without this, a slice dragged to 0% (legitimate — keto wants 0
+    // carbs) has no visible affordance to grab and drag back out, since
+    // its own arc has vanished entirely. The knob is always there.
+    final ringCenterRadius = radius - _strokeWidth / 2;
+    void drawHandle(double canvasAngle) {
+      final point =
+          center + Offset(cos(canvasAngle), sin(canvasAngle)) * ringCenterRadius;
+      canvas.drawCircle(point, 7, Paint()..color = Colors.white);
+      canvas.drawCircle(
+        point,
+        7,
+        Paint()
+          ..color = Colors.black26
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5,
+      );
+    }
+
     drawArc(0, split.proteinFraction, AppColors.proteinRing);
     drawArc(split.proteinFraction, split.carbsFraction, AppColors.carbsRing);
     drawArc(
@@ -221,6 +240,12 @@ class _MacroPiePainter extends CustomPainter {
       split.fatFraction,
       AppColors.fatRing,
     );
+
+    drawHandle(-pi / 2 + split.proteinFraction * 2 * pi);
+    drawHandle(
+      -pi / 2 + (split.proteinFraction + split.carbsFraction) * 2 * pi,
+    );
+    drawHandle(-pi / 2);
 
     drawLabel('Protein', 0, split.proteinFraction, AppColors.proteinRing);
     drawLabel(

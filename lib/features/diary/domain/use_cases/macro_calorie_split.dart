@@ -49,59 +49,56 @@ MacroCalorieSplit macroCalorieSplitFromGrams({
 /// The three draggable boundaries of a 3-slice macro pie chart, named
 /// `xY` for "the edge between slice x and slice y, going clockwise from
 /// x to y".
-enum MacroSliceBoundary { proteinCarbs, carbsFat, fatProtein }
+/// A general-purpose, fitness-oriented macro split — higher protein than a
+/// typical sedentary-population default, a reasonable starting point for
+/// someone tracking workouts alongside food. Not personalized to body
+/// weight, sex, or training focus; just a sane default a user can drag
+/// away from.
+const recommendedProteinFraction = 0.30;
+const recommendedCarbsFraction = 0.40;
+const recommendedFatFraction = 0.30;
 
-/// The smallest share of the total any single slice may hold. Without a
-/// floor, a slice dragged down to literal zero collapses its two
-/// boundaries onto the same angle — indistinguishable to touch, and
-/// impossible to grab and drag back out. Keeping a real minimum sliver
-/// means every boundary is always a real, separately-selectable target.
-const minSliceFraction = 0.05;
+MacroCalorieSplit recommendedMacroSplit(double totalKcal) => MacroCalorieSplit(
+  proteinKcal: totalKcal * recommendedProteinFraction,
+  carbsKcal: totalKcal * recommendedCarbsFraction,
+  fatKcal: totalKcal * recommendedFatFraction,
+);
+
+enum MacroSliceBoundary { proteinCarbs, carbsFat, fatProtein }
 
 /// Moves one boundary of the pie by [deltaKcal], transferring calories
 /// between exactly the two slices that boundary separates — the third
 /// slice, and the pie's total, are always left untouched. Positive
 /// [deltaKcal] grows the first-named slice at the second-named slice's
 /// expense (e.g. for [MacroSliceBoundary.proteinCarbs], positive moves
-/// kcal from carbs to protein); negative does the reverse. Clamped at
-/// [minSliceFraction] of the total, not zero — see there for why. A slice
-/// that starts out already below the floor (stale/imported data) can
-/// still be grown back out; it just can't be shrunk further.
+/// kcal from carbs to protein); negative does the reverse. Clamped so
+/// neither slice goes negative — no minimum floor: a diet can legitimately
+/// want 0% of a macro (e.g. keto wants 0 carbs). A slice already at zero
+/// can still be grown back out by the same boundary that zeroed it — the
+/// pie chart widget keeps a persistent handle marker at every boundary
+/// regardless of slice size, so there's always something to grab.
 MacroCalorieSplit adjustMacroSliceBoundary(
   MacroCalorieSplit current,
   MacroSliceBoundary boundary,
   double deltaKcal,
 ) {
-  final floor = current.totalKcal * minSliceFraction;
-  double lowerBound(double giving) => -(giving - floor).clamp(0.0, double.infinity);
-  double upperBound(double giving) => (giving - floor).clamp(0.0, double.infinity);
-
   switch (boundary) {
     case MacroSliceBoundary.proteinCarbs:
-      final clamped = deltaKcal.clamp(
-        lowerBound(current.proteinKcal),
-        upperBound(current.carbsKcal),
-      );
+      final clamped = deltaKcal.clamp(-current.proteinKcal, current.carbsKcal);
       return MacroCalorieSplit(
         proteinKcal: current.proteinKcal + clamped,
         carbsKcal: current.carbsKcal - clamped,
         fatKcal: current.fatKcal,
       );
     case MacroSliceBoundary.carbsFat:
-      final clamped = deltaKcal.clamp(
-        lowerBound(current.carbsKcal),
-        upperBound(current.fatKcal),
-      );
+      final clamped = deltaKcal.clamp(-current.carbsKcal, current.fatKcal);
       return MacroCalorieSplit(
         proteinKcal: current.proteinKcal,
         carbsKcal: current.carbsKcal + clamped,
         fatKcal: current.fatKcal - clamped,
       );
     case MacroSliceBoundary.fatProtein:
-      final clamped = deltaKcal.clamp(
-        lowerBound(current.fatKcal),
-        upperBound(current.proteinKcal),
-      );
+      final clamped = deltaKcal.clamp(-current.fatKcal, current.proteinKcal);
       return MacroCalorieSplit(
         proteinKcal: current.proteinKcal - clamped,
         carbsKcal: current.carbsKcal,

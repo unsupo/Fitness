@@ -3,6 +3,73 @@
 Deliberately deferred from the first build pass. Not urgent, but worth
 tracking so decisions aren't lost.
 
+## Round 11 — adjustable macro pie chart, workout notes, weekly-rate precision, CI fix
+- **Profile's macro targets are now a draggable pie chart, not text fields.**
+  `edit_daily_goals_dialog.dart` replaced the plain protein/carbs/fat number
+  fields with `AdjustableMacroPieChart` — a `CustomPainter` donut whose slice
+  angles are each macro's calorie share (protein/carbs at 4 kcal/g, fat at 9,
+  via new `lib/features/diary/domain/use_cases/macro_calorie_split.dart`), so
+  the ring always totals the calorie goal. Dragging a boundary transfers kcal
+  between just the two neighboring macros (`adjustMacroSliceBoundary`,
+  clamped at literal zero — no minimum floor, since diets can legitimately
+  want 0% of a macro, e.g. keto's 0 carbs). See `docs/GOTCHAS.md` for why a
+  percentage floor was tried and reverted in favor of always-visible handle
+  markers at each boundary.
+- **Fixed a real goal/pie mismatch found via live device testing.** The
+  stored macro grams didn't always sum to the stored calorie goal (pre-dated
+  this feature — e.g. real DB data had macros summing to 2105 kcal against a
+  2000 kcal goal). The dialog now rescales macros onto the calorie goal once
+  on open (`rescaleMacrosToCalories`), so the pie's center number can never
+  visibly disagree with the Calories field.
+- **Added a "recommended split" (30% protein / 40% carbs / 30% fat) with a
+  one-tap apply button** (`recommendedMacroSplit` in
+  `macro_calorie_split.dart`) — a fitness-oriented default, not personalized
+  to body weight/training focus.
+- **Weekly-rate slider precision + a label/field consistency bug.** The
+  slider snapped its displayed "Lose/Gain X lb/week" label to the nearest
+  0.25 grid independently of the exact calorie figure shown right above it —
+  see `docs/GOTCHAS.md`'s "rounded display value" entry for the full
+  mechanism. Fixed by only rounding what the slider itself produces on drag,
+  never the label derived from an already-exact calorie value. Also
+  tightened the US-unit step from 0.25 lb to 0.05 lb/week (`sliderDivisions`
+  120 over the -3..3 span).
+- **TDEE line clarified.** "Estimated TDEE: N kcal" now says "(Maintain)"
+  next to it and has an info button explaining what TDEE means and how the
+  Weekly Rate slider relates to it — it previously showed a bare number with
+  no context.
+- **Trends' Macro Breakdown now shows the Profile goal alongside actual
+  intake.** `_LegendRow` in `trends_page.dart` gained a "· Goal Xg" suffix
+  (the `dailyGoalsProvider` daily goal ×7, since the breakdown itself sums a
+  whole week) next to each macro's logged grams/percent — previously the
+  legend showed percent only, with no way to see actual-vs-target at a
+  glance.
+- **Surfaced workout set notes that existed in the DB with zero UI anywhere.**
+  `workout_sets.notes` was being saved and correctly round-tripped through
+  the model, but no widget ever read `set.notes` — confirmed real notes
+  existed via direct SQL before fixing. Now shown under each set on the
+  exercise detail and session detail pages, and `edit_workout_set_dialog.dart`
+  gained a notes field (previously missing from that dialog entirely).
+- **Recipes list: tap-to-edit instead of a pencil icon, swipe-to-delete,
+  pull-to-refresh** matching the Home/Trends `RefreshIndicator` pattern —
+  see `docs/GOTCHAS.md` for the `RefreshIndicator`-needs-a-real-`ListView`
+  and `Dismissible`-locally-removed-ids gotchas this surfaced.
+- **Fixed a CI-only failure and a CI job that had been red for two pushes.**
+  `quick_add_modal.dart` had a `ListTile` with `onTap` nested in a colored
+  `Container` with no `Material` ancestor — passed locally on Flutter 3.41.6,
+  failed in CI's unpinned `stable` (3.44.8). Separately, the Android
+  integration test job (`integration_test/app_test.dart`) had been failing
+  for two prior pushes on a stale `find.text('Macro Breakdown')` assertion
+  that never got updated when that heading gained a week-range suffix
+  earlier in development — not noticed because CI output wasn't checked
+  immediately after those pushes. Both are now fixed; see `docs/GOTCHAS.md`.
+
+## Round 10 — Exercise progress, overload recommendations, and brand deployment
+- **Epley One-Rep Max (1RM) Progress Chart.** Plots historical peak 1RM per workout day on a curved `LineChart` using `fl_chart`. Added an interactive placeholder card instead of hiding the section when data is insufficient (less than 2 days logged) to provide better user guidance.
+- **Progressive Overload Recommendations.** Built a rules usecase that increments reps/weights based on the user's focus (Hypertrophy targets 8-12 reps; Strength targets 3-6 reps) and injected it as target visual indicators and input field fallbacks on active set logging.
+- **Branding Assets Overwrite.** Replaced standard Flutter launcher icons and white launch screens on iOS and Android with customized Nourish logo branding and a warm-cream native splash screen matching the background color scheme.
+- **Gotcha: Lazy Riverpod Notifier Build in tests.** When testing a Riverpod `Notifier` that loads data asynchronously in its `build` method (like reading from `shared_preferences`), creating the `ProviderContainer` does not automatically trigger the build. You must call `container.read()` or listen to the provider *before* introducing async test delays, otherwise the async load is never kicked off.
+- **Gotcha: Unique icon finders in widget tests.** Re-using common icons (like `Icons.delete_outline` for both recipe deletion and ingredient row removals) can break existing widget tests searching by a generic icon finder. Proactively assign specific tooltips or keys to AppBar actions (e.g., `tooltip: 'Delete recipe'`) and locate them using `find.byTooltip()` to avoid ambiguous matches.
+
 ## Round 9 — CSV weight import + weekly-average goal graph + an ordering bug
 - **CSV weigh-in import.** New upload icon in `_WeightSection`'s header
   (`trends_page.dart`) opens the native file picker (`file_picker: ^8.1.0`,

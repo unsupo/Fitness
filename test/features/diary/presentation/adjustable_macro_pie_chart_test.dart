@@ -136,14 +136,11 @@ void main() {
   );
 
   testWidgets(
-    'clamps at the minimum floor, not zero — a slice already below the '
-    'floor can\'t be shrunk further, so it always stays grabbable',
+    'clamps at literal zero — no minimum floor, since a diet can '
+    'legitimately want 0% of a macro (e.g. keto wants 0 carbs)',
     (tester) async {
       double? resultProtein, resultCarbs;
 
-      // Protein has only 40 kcal (10g) of 1690 total (2.4%) — already
-      // below the 5% floor (84.5 kcal), same as stale/imported data might
-      // be.
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -166,7 +163,7 @@ void main() {
 
       final topLeft = tester.getTopLeft(find.byType(AdjustableMacroPieChart));
       // fatProtein boundary (angle 0) — drag deep clockwise, past protein's
-      // entire small slice, trying to shrink it further.
+      // entire small slice, to try to shrink it below zero.
       final startPoint = topLeft + pointAt(0.001);
       final endPoint = topLeft + pointAt(pi); // 180°, way past protein's slice
 
@@ -177,10 +174,55 @@ void main() {
       await gesture.up();
       await tester.pumpAndSettle();
 
-      // Already below the floor, so the shrink is blocked entirely —
-      // protein stays exactly where it started.
-      expect(resultProtein, closeTo(10, 0.01));
-      expect(resultCarbs, closeTo(300, 0.01));
+      expect(resultProtein, closeTo(0, 0.01));
+      expect(resultCarbs, isNotNull);
+    },
+  );
+
+  testWidgets(
+    'a macro already at exactly zero (keto: 0 carbs) can still be grabbed '
+    'and dragged back out via its always-present handle',
+    (tester) async {
+      double? resultCarbs;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AdjustableMacroPieChart(
+              proteinG: 100,
+              carbsG: 0,
+              fatG: 100,
+              onChanged: ({
+                required proteinG,
+                required carbsG,
+                required fatG,
+              }) {
+                resultCarbs = carbsG;
+              },
+            ),
+          ),
+        ),
+      );
+
+      final topLeft = tester.getTopLeft(find.byType(AdjustableMacroPieChart));
+      // proteinCarbs and carbsFat boundaries coincide at the same angle
+      // when carbs is 0 (400/1300 * 2π) — that shared point is exactly
+      // where carbs' handle sits. Dragging counter-clockwise from there
+      // encroaches into protein's territory (drawn just before this angle),
+      // pulling kcal out of protein and into carbs.
+      final zeroCarbsAngle = 400 / 1300 * 2 * pi;
+      final startPoint = topLeft + pointAt(zeroCarbsAngle - 0.02);
+      final endPoint = topLeft + pointAt(zeroCarbsAngle - 0.3);
+
+      final gesture = await tester.startGesture(startPoint);
+      await tester.pump();
+      await gesture.moveTo(endPoint);
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(resultCarbs, isNotNull);
+      expect(resultCarbs! > 0, isTrue);
     },
   );
 }

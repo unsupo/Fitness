@@ -36,6 +36,8 @@ Feature-First Clean Architecture. Full contract, folder layout, and the
 mandatory TDD (red/green) workflow are documented in `docs/ARCHITECTURE.md`.
 Per-feature specs: `docs/features/diary.md`, `docs/features/scanner.md`,
 `docs/features/analytics.md`. Deferred items: `docs/FUTURE_IMPROVEMENTS.md`.
+Recurring pitfalls/non-obvious fixes (read before touching an area it
+covers): `docs/GOTCHAS.md`.
 
 Each feature is isolated (`domain/`, `data/`, `data/repositories/` implement
 `domain/repositories/` interfaces). Presentation never talks to Supabase

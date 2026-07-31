@@ -119,7 +119,8 @@ Future<void> showEditDailyGoalsDialog(
                 if (profile.unitSystem == 'us') {
                   sliderMin = -3.0;
                   sliderMax = 3.0;
-                  sliderDivisions = 24;
+                  // 0.05 lb/week steps over a 6.0 lb span.
+                  sliderDivisions = 120;
                 }
 
                 if (!sliderInitialized) {
@@ -133,9 +134,13 @@ Future<void> showEditDailyGoalsDialog(
                   final initialRateDisplay = unit == 'lb'
                       ? kgToLb(initialRateKg)
                       : initialRateKg;
-                  // Round to nearest 0.25 and clamp
-                  sliderVal = ((initialRateDisplay / 0.25).round() * 0.25)
-                      .clamp(sliderMin, sliderMax);
+                  // Deliberately NOT rounded to the slider's 0.25 grid — the
+                  // label must show the exact rate this calorie goal implies,
+                  // or the two visibly disagree (e.g. "2000 cal" next to a
+                  // rounded "1.25 lb/week" label that's actually 1.20 lb/week
+                  // for exactly 2000 cal). The thumb just renders at this
+                  // exact position; divisions only affect drag snapping.
+                  sliderVal = initialRateDisplay.clamp(sliderMin, sliderMax);
                   sliderInitialized = true;
                 }
               }
@@ -169,8 +174,10 @@ Future<void> showEditDailyGoalsDialog(
                               final rateDisplay = unit == 'lb'
                                   ? kgToLb(rateKg)
                                   : rateKg;
-                              sliderVal = ((rateDisplay / 0.25).round() * 0.25)
-                                  .clamp(sliderMin, sliderMax);
+                              // Same reasoning as the initial-load case above:
+                              // no 0.25 rounding, so the label always matches
+                              // the calorie figure the user just typed.
+                              sliderVal = rateDisplay.clamp(sliderMin, sliderMax);
                             }
                           });
                         },
@@ -295,7 +302,7 @@ Future<void> showEditDailyGoalsDialog(
                           color: AppColors.textSecondary,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 24),
                       Center(
                         child: AdjustableMacroPieChart(
                           key: const Key('macro-pie-chart'),
@@ -322,7 +329,7 @@ Future<void> showEditDailyGoalsDialog(
                               },
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 24),
                       Builder(
                         builder: (context) {
                           final split = macroCalorieSplitFromGrams(
@@ -356,6 +363,42 @@ Future<void> showEditDailyGoalsDialog(
                             ],
                           );
                         },
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Recommended: '
+                        '${(recommendedProteinFraction * 100).round()}% '
+                        'protein · '
+                        '${(recommendedCarbsFraction * 100).round()}% '
+                        'carbs · '
+                        '${(recommendedFatFraction * 100).round()}% fat',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          key: const Key('use-recommended-split-button'),
+                          onPressed: () {
+                            final calories =
+                                double.tryParse(calorieController.text) ??
+                                current.calorieGoal;
+                            final grams = macroGramsFromCalorieSplit(
+                              recommendedMacroSplit(calories),
+                            );
+                            setState(() {
+                              setMacroGrams(
+                                protein: grams.proteinG,
+                                carbs: grams.carbsG,
+                                fat: grams.fatG,
+                              );
+                            });
+                          },
+                          child: const Text('Use recommended'),
+                        ),
                       ),
                       if (error.isNotEmpty) ...[
                         const SizedBox(height: 8),

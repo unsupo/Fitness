@@ -1,11 +1,15 @@
+import 'package:arndt_fitness/features/analytics/domain/entities/macro_breakdown.dart';
 import 'package:arndt_fitness/features/analytics/domain/entities/weight_entry.dart';
 import 'package:arndt_fitness/features/analytics/presentation/controllers/analytics_providers.dart';
 import 'package:arndt_fitness/features/analytics/presentation/pages/trends_page.dart';
+import 'package:arndt_fitness/features/diary/domain/entities/daily_goals.dart';
+import 'package:arndt_fitness/features/diary/presentation/controllers/diary_providers.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../diary/fakes/fake_diary_repository.dart';
 import '../fakes/fake_analytics_repository.dart';
 
 void main() {
@@ -63,6 +67,48 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Macro Breakdown (Jul 20-26)'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Macro Breakdown legend shows each macro\'s weekly goal (7x the daily '
+    'goal set in Profile) next to the logged grams, so actual vs. target '
+    'is visible at a glance',
+    (tester) async {
+      final fake = FakeAnalyticsRepository(
+        macroBreakdown: const MacroBreakdown(
+          proteinG: 700,
+          carbsG: 1000,
+          fatG: 300,
+        ),
+      );
+      final diaryFake = FakeDiaryRepository(
+        goals: const DailyGoals(
+          calorieGoal: 2000,
+          proteinGoalG: 150,
+          carbsGoalG: 200,
+          fatGoalG: 65,
+        ),
+      );
+      await tester.binding.setSurfaceSize(const Size(400, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            analyticsRepositoryProvider.overrideWithValue(fake),
+            diaryRepositoryProvider.overrideWithValue(diaryFake),
+          ],
+          child: const MaterialApp(home: TrendsPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Daily goals x7 for a weekly comparison: 150*7=1050, 200*7=1400,
+      // 65*7=455.
+      expect(find.textContaining('Goal 1050g'), findsOneWidget);
+      expect(find.textContaining('Goal 1400g'), findsOneWidget);
+      expect(find.textContaining('Goal 455g'), findsOneWidget);
     },
   );
 

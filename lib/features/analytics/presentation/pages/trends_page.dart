@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_drawer.dart';
+import '../../../diary/domain/entities/daily_goals.dart';
+import '../../../diary/presentation/controllers/diary_providers.dart';
 import '../../domain/entities/daily_calories.dart';
 import '../../domain/entities/macro_breakdown.dart';
 import '../../domain/entities/weight_entry.dart';
@@ -454,6 +456,7 @@ class _MacroBreakdownSection extends ConsumerWidget {
       end: weekStart.add(const Duration(days: 7)),
     );
     final macroAsync = ref.watch(macroBreakdownProvider(params));
+    final goalsAsync = ref.watch(dailyGoalsProvider);
 
     return SectionCard(
       child: Column(
@@ -469,7 +472,8 @@ class _MacroBreakdownSection extends ConsumerWidget {
           SizedBox(
             height: 160,
             child: macroAsync.when(
-              data: (macro) => _MacroDonut(macro: macro),
+              data: (macro) =>
+                  _MacroDonut(macro: macro, goals: goalsAsync.asData?.value),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => Center(child: Text('Error: $error')),
             ),
@@ -481,9 +485,14 @@ class _MacroBreakdownSection extends ConsumerWidget {
 }
 
 class _MacroDonut extends StatelessWidget {
-  const _MacroDonut({required this.macro});
+  const _MacroDonut({required this.macro, this.goals});
 
   final MacroBreakdown macro;
+
+  /// The daily goals set in Profile, when loaded — multiplied by 7 for a
+  /// weekly comparison against [macro], which sums a whole week of
+  /// logging. Null (goal text simply omitted) while still loading.
+  final DailyGoals? goals;
 
   @override
   Widget build(BuildContext context) {
@@ -526,19 +535,25 @@ class _MacroDonut extends StatelessWidget {
               _LegendRow(
                 color: AppColors.proteinRing,
                 label: 'Protein',
+                grams: macro.proteinG,
                 percent: macro.proteinPercent,
+                goalG: goals == null ? null : goals!.proteinGoalG * 7,
               ),
               const SizedBox(height: 8),
               _LegendRow(
                 color: AppColors.carbsRing,
                 label: 'Carbs',
+                grams: macro.carbsG,
                 percent: macro.carbsPercent,
+                goalG: goals == null ? null : goals!.carbsGoalG * 7,
               ),
               const SizedBox(height: 8),
               _LegendRow(
                 color: AppColors.fatRing,
                 label: 'Fat',
+                grams: macro.fatG,
                 percent: macro.fatPercent,
+                goalG: goals == null ? null : goals!.fatGoalG * 7,
               ),
             ],
           ),
@@ -552,15 +567,24 @@ class _LegendRow extends StatelessWidget {
   const _LegendRow({
     required this.color,
     required this.label,
+    required this.grams,
     required this.percent,
+    this.goalG,
   });
 
   final Color color;
   final String label;
+  final double grams;
   final double percent;
+
+  /// This macro's weekly goal (daily goal from Profile x7), when known —
+  /// shown alongside the logged grams so actual vs. target is visible at a
+  /// glance, not just the relative percent split.
+  final double? goalG;
 
   @override
   Widget build(BuildContext context) {
+    final goal = goalG;
     return Row(
       children: [
         Container(
@@ -571,7 +595,8 @@ class _LegendRow extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            '$label ${(percent * 100).round()}%',
+            '$label ${grams.round()}g (${(percent * 100).round()}%)'
+            '${goal == null ? '' : ' · Goal ${goal.round()}g'}',
             overflow: TextOverflow.ellipsis,
           ),
         ),
