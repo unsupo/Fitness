@@ -1,3 +1,4 @@
+import 'package:arndt_fitness/features/workouts/domain/entities/workout_set.dart';
 import 'package:arndt_fitness/features/workouts/presentation/controllers/workout_repository_provider.dart';
 import 'package:arndt_fitness/features/workouts/presentation/pages/workout_session_detail_page.dart';
 import 'package:flutter/material.dart';
@@ -54,6 +55,42 @@ void main() {
       expect(find.textContaining('12'), findsOneWidget);
       expect(find.textContaining('5.5'), findsOneWidget);
     });
+
+    testWidgets(
+      'shows a set\'s notes underneath it when present',
+      (tester) async {
+        final fake = FakeWorkoutRepository(
+          setsBySession: {
+            1: [
+              WorkoutSet(
+                id: 1,
+                loggedAt: DateTime(2026, 7, 20, 9, 0),
+                machineId: 1,
+                machineName: 'Bench Press',
+                sessionId: 1,
+                setNumber: 1,
+                weight: 135,
+                reps: 8,
+                unit: 'lb',
+                notes: 'Cramped after 1 set',
+              ),
+            ],
+          },
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [workoutRepositoryProvider.overrideWithValue(fake)],
+            child: const MaterialApp(
+              home: WorkoutSessionDetailPage(sessionId: 1),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Cramped after 1 set'), findsOneWidget);
+      },
+    );
 
     testWidgets('pulling to refresh re-fetches this session\'s sets', (
       tester,

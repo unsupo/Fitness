@@ -98,6 +98,37 @@ void main() {
       },
     );
 
+    testWidgets(
+      'shows a set\'s notes underneath it when present, and nothing extra '
+      'when notes are null',
+      (tester) async {
+        final fake = FakeWorkoutRepository(
+          machines: _machines,
+          setsBySession: {
+            10: [
+              WorkoutSet(
+                id: 1,
+                loggedAt: DateTime(2026, 7, 1, 9, 0),
+                machineId: 1,
+                machineName: 'Bench Press',
+                sessionId: 10,
+                setNumber: 1,
+                weight: 100,
+                reps: 10,
+                unit: 'lb',
+                notes: 'Took everything I had',
+              ),
+            ],
+            11: [_fixtureSetsByMachine[1]![1]],
+          },
+        );
+
+        await _pumpDetail(tester, fake);
+
+        expect(find.text('Took everything I had'), findsOneWidget);
+      },
+    );
+
     testWidgets('shows "no PR yet" / "not logged yet" when no sets exist', (
       tester,
     ) async {
@@ -110,6 +141,38 @@ void main() {
 
       expect(find.text('No PR yet'), findsOneWidget);
       expect(find.text('Not logged yet'), findsOneWidget);
+    });
+
+    testWidgets('shows progress chart if 2 or more sessions exist, otherwise hides it', (
+      tester,
+    ) async {
+      // Case 1: 0 sets -> hides chart
+      final fake0 = FakeWorkoutRepository(machines: _machines, setsBySession: const {});
+      await _pumpDetail(tester, fake0);
+      expect(find.text('Estimated 1RM Progress'), findsNothing);
+
+      // Case 2: 1 set -> shows placeholder
+      final fake1 = FakeWorkoutRepository(
+        machines: _machines,
+        setsBySession: {
+          10: [_fixtureSetsByMachine[1]![0]],
+        },
+      );
+      await _pumpDetail(tester, fake1);
+      expect(find.text('Estimated 1RM Progress'), findsOneWidget);
+      expect(find.textContaining('Log this exercise in at least 2 different workouts'), findsOneWidget);
+
+      // Case 3: 3 sets across 3 sessions -> shows chart
+      final fake3 = FakeWorkoutRepository(
+        machines: _machines,
+        setsBySession: {
+          10: [_fixtureSetsByMachine[1]![0]],
+          11: [_fixtureSetsByMachine[1]![1]],
+          12: [_fixtureSetsByMachine[1]![2]],
+        },
+      );
+      await _pumpDetail(tester, fake3);
+      expect(find.text('Estimated 1RM Progress'), findsOneWidget);
     });
 
     testWidgets('pulling to refresh re-fetches this machine\'s set history', (

@@ -33,60 +33,72 @@ Future<void> showEditWorkoutSetDialog(
   final durationController = TextEditingController(
     text: _fmt(set.durationMinutes),
   );
+  final notesController = TextEditingController(text: set.notes ?? '');
 
   return showDialog<void>(
     context: context,
     builder: (dialogContext) {
       return AlertDialog(
         title: Text(set.machineName),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: isCardio
-              ? [
-                  TextField(
-                    key: const Key('edit-set-incline-field'),
-                    controller: inclineController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(labelText: 'Incline'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    key: const Key('edit-set-speed-field'),
-                    controller: speedController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(labelText: 'Speed'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    key: const Key('edit-set-duration-field'),
-                    controller: durationController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(labelText: 'Minutes'),
-                  ),
-                ]
-              : [
-                  TextField(
-                    key: const Key('edit-set-weight-field'),
-                    controller: weightController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(labelText: 'Weight'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    key: const Key('edit-set-reps-field'),
-                    controller: repsController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Reps'),
-                  ),
-                ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ...isCardio
+                  ? [
+                      TextField(
+                        key: const Key('edit-set-incline-field'),
+                        controller: inclineController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(labelText: 'Incline'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        key: const Key('edit-set-speed-field'),
+                        controller: speedController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(labelText: 'Speed'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        key: const Key('edit-set-duration-field'),
+                        controller: durationController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(labelText: 'Minutes'),
+                      ),
+                    ]
+                  : [
+                      TextField(
+                        key: const Key('edit-set-weight-field'),
+                        controller: weightController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(labelText: 'Weight'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        key: const Key('edit-set-reps-field'),
+                        controller: repsController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'Reps'),
+                      ),
+                    ],
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('edit-set-notes-field'),
+                controller: notesController,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Notes'),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -125,7 +137,9 @@ Future<void> showEditWorkoutSetDialog(
                     : null,
                 seatPosition: set.seatPosition,
                 restSeconds: set.restSeconds,
-                notes: set.notes,
+                notes: notesController.text.isEmpty
+                    ? null
+                    : notesController.text,
               );
               await ref.read(workoutRepositoryProvider).updateSet(updated);
               onChanged();

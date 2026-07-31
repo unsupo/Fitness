@@ -7,9 +7,11 @@ import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/machine.dart';
 import '../../domain/entities/workout_set.dart';
 import '../../domain/use_cases/compute_personal_record.dart';
+import '../../domain/use_cases/calculate_one_rep_max.dart';
 import '../controllers/exercises_providers.dart';
 import '../controllers/workout_repository_provider.dart';
 import '../widgets/edit_workout_set_dialog.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 /// One machine's detail page: a "Personal Record" callout (max weight, via
 /// `computePersonalRecord`) plus the full set history, reverse-chronological.
@@ -105,6 +107,8 @@ class _ExerciseDetailBody extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 16),
+        _ProgressChartCard(sets: sets),
+        const SizedBox(height: 16),
         if (history.isEmpty)
           const Padding(
             padding: EdgeInsets.only(top: 32),
@@ -146,17 +150,32 @@ class _HistoryRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: SectionCard(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                DateFormat('MMM d, yyyy').format(set.loggedAt),
-                style: const TextStyle(color: AppColors.textSecondary),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    DateFormat('MMM d, yyyy').format(set.loggedAt),
+                    style: const TextStyle(color: AppColors.textSecondary),
+                  ),
+                  Text(
+                    _formatSetLine(set),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ],
               ),
-              Text(
-                _formatSetLine(set),
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
+              if (set.notes != null && set.notes!.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  set.notes!,
+                  style: const TextStyle(
+                    fontStyle: FontStyle.italic,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -187,4 +206,136 @@ String _formatSetLine(WorkoutSet set) {
 
 String _formatNum(double value) {
   return value % 1 == 0 ? value.toInt().toString() : value.toString();
+}
+
+class _ProgressChartCard extends StatelessWidget {
+  const _ProgressChartCard({required this.sets});
+
+  final List<WorkoutSet> sets;
+
+  @override
+  Widget build(BuildContext context) {
+    final strengthSets = sets.where((s) => s.weight != null && s.reps != null).toList();
+    if (sets.isEmpty || (sets.isNotEmpty && strengthSets.isEmpty)) {
+      return const SizedBox.shrink();
+    }
+
+    final Map<String, ({DateTime date, double max1RM})> sessionData = {};
+    for (final set in strengthSets) {
+      final dateStr = DateFormat('yyyy-MM-dd').format(set.loggedAt);
+      final oneRepMax = calculateOneRepMax(weight: set.weight!, reps: set.reps!);
+      final existing = sessionData[dateStr];
+      if (existing == null || oneRepMax > existing.max1RM) {
+        sessionData[dateStr] = (date: set.loggedAt, max1RM: oneRepMax);
+      }
+    }
+
+    final sortedPoints = sessionData.values.toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+
+    if (sortedPoints.length < 2) {
+      return SectionCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Estimated 1RM Progress',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Log this exercise in at least 2 different workouts to see your progress chart.',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final min1RM = sortedPoints.map((p) => p.max1RM).reduce((a, b) => a < b ? a : b);
+    final max1RM = sortedPoints.map((p) => p.max1RM).reduce((a, b) => a > b ? a : b);
+
+    final minY = (min1RM * 0.9).roundToDouble();
+    final maxY = (max1RM * 1.1).roundToDouble();
+
+    return SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Estimated 1RM Progress',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 180,
+            child: LineChart(
+              LineChartData(
+                gridData: const FlGridData(show: false),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 36,
+                      getTitlesWidget: (val, meta) => Text(
+                        val.round().toString(),
+                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 10),
+                      ),
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (val, meta) {
+                        final idx = val.toInt();
+                        if (idx < 0 || idx >= sortedPoints.length) return const SizedBox.shrink();
+                        if (idx == 0 || idx == sortedPoints.length - 1 || sortedPoints.length <= 4) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              DateFormat('M/d').format(sortedPoints[idx].date),
+                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 10),
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                minX: 0.0,
+                maxX: (sortedPoints.length - 1).toDouble(),
+                minY: minY,
+                maxY: maxY,
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: [
+                      for (int i = 0; i < sortedPoints.length; i++)
+                        FlSpot(i.toDouble(), sortedPoints[i].max1RM),
+                    ],
+                    isCurved: true,
+                    color: AppColors.brandGreen,
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: true),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: AppColors.brandGreen.withValues(alpha: 0.1),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

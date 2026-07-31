@@ -118,15 +118,32 @@ class _SessionBody extends ConsumerWidget {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(_formatSet(set)),
-                        const Icon(
-                          Icons.edit_outlined,
-                          size: 16,
-                          color: AppColors.textSecondary,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(_formatSet(set)),
+                            const Icon(
+                              Icons.edit_outlined,
+                              size: 16,
+                              color: AppColors.textSecondary,
+                            ),
+                          ],
                         ),
+                        if (set.notes != null && set.notes!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              set.notes!,
+                              style: const TextStyle(
+                                fontStyle: FontStyle.italic,
+                                fontSize: 13,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
