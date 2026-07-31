@@ -22,6 +22,6 @@ void main() {
     await tester.pumpAndSettle(const Duration(seconds: 3));
 
     expect(find.text('Weekly Calories'), findsOneWidget);
-    expect(find.text('Macro Breakdown'), findsOneWidget);
+    expect(find.textContaining('Macro Breakdown'), findsOneWidget);
   });
 }

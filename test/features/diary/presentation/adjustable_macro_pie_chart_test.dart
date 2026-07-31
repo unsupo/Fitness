@@ -136,13 +136,14 @@ void main() {
   );
 
   testWidgets(
-    'clamps at zero — dragging far past a slice\'s full extent does not '
-    'go negative',
+    'clamps at the minimum floor, not zero — a slice already below the '
+    'floor can\'t be shrunk further, so it always stays grabbable',
     (tester) async {
       double? resultProtein, resultCarbs;
 
-      // Protein has only 40 kcal (10g) — a small slice, easy to fully
-      // consume with a large drag.
+      // Protein has only 40 kcal (10g) of 1690 total (2.4%) — already
+      // below the 5% floor (84.5 kcal), same as stale/imported data might
+      // be.
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -165,7 +166,7 @@ void main() {
 
       final topLeft = tester.getTopLeft(find.byType(AdjustableMacroPieChart));
       // fatProtein boundary (angle 0) — drag deep clockwise, past protein's
-      // entire small slice, to try to shrink it below zero.
+      // entire small slice, trying to shrink it further.
       final startPoint = topLeft + pointAt(0.001);
       final endPoint = topLeft + pointAt(pi); // 180°, way past protein's slice
 
@@ -176,9 +177,10 @@ void main() {
       await gesture.up();
       await tester.pumpAndSettle();
 
-      expect(resultProtein, isNotNull);
-      expect(resultProtein! >= 0, isTrue);
-      expect(resultCarbs, isNotNull);
+      // Already below the floor, so the shrink is blocked entirely —
+      // protein stays exactly where it started.
+      expect(resultProtein, closeTo(10, 0.01));
+      expect(resultCarbs, closeTo(300, 0.01));
     },
   );
 }

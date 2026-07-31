@@ -136,32 +136,40 @@ void main() {
       expect(adjusted.fatKcal, 685);
     });
 
-    test('clamps so the shrinking slice never goes negative', () {
+    test(
+      'clamps at the 5% minimum floor, not literal zero, so the shrinking '
+      'slice always keeps a real sliver — a slice that reaches literal zero '
+      'would collapse its two boundaries onto the same angle, making it '
+      'impossible to grab and drag back out',
+      () {
+        const current = MacroCalorieSplit(
+          proteinKcal: 600,
+          carbsKcal: 800,
+          fatKcal: 585,
+        );
+        final floor = current.totalKcal * minSliceFraction; // 99.25
+
+        // Trying to move 10000 kcal from carbs to protein — carbs can only
+        // give up until it hits its own floor.
+        final adjusted = adjustMacroSliceBoundary(
+          current,
+          MacroSliceBoundary.proteinCarbs,
+          10000,
+        );
+
+        expect(adjusted.carbsKcal, closeTo(floor, 0.01));
+        expect(adjusted.proteinKcal, closeTo(1300.75, 0.01));
+        expect(adjusted.totalKcal, current.totalKcal);
+      },
+    );
+
+    test('clamps symmetrically at the floor for a too-large negative delta', () {
       const current = MacroCalorieSplit(
         proteinKcal: 600,
         carbsKcal: 800,
         fatKcal: 585,
       );
-
-      // Trying to move 10000 kcal from carbs to protein — carbs can only
-      // give up its own 800 kcal.
-      final adjusted = adjustMacroSliceBoundary(
-        current,
-        MacroSliceBoundary.proteinCarbs,
-        10000,
-      );
-
-      expect(adjusted.carbsKcal, 0);
-      expect(adjusted.proteinKcal, 1400);
-      expect(adjusted.totalKcal, current.totalKcal);
-    });
-
-    test('clamps symmetrically for a too-large negative delta', () {
-      const current = MacroCalorieSplit(
-        proteinKcal: 600,
-        carbsKcal: 800,
-        fatKcal: 585,
-      );
+      final floor = current.totalKcal * minSliceFraction;
 
       final adjusted = adjustMacroSliceBoundary(
         current,
@@ -169,9 +177,37 @@ void main() {
         -10000,
       );
 
-      expect(adjusted.proteinKcal, 0);
-      expect(adjusted.carbsKcal, 1400);
+      expect(adjusted.proteinKcal, closeTo(floor, 0.01));
+      expect(adjusted.carbsKcal, closeTo(1300.75, 0.01));
       expect(adjusted.totalKcal, current.totalKcal);
     });
+
+    test(
+      'a slice already below the floor (e.g. stale data) can still be '
+      'grown back out, and simply can\'t be shrunk further',
+      () {
+        const current = MacroCalorieSplit(
+          proteinKcal: 20,
+          carbsKcal: 1200,
+          fatKcal: 780,
+        );
+
+        final grown = adjustMacroSliceBoundary(
+          current,
+          MacroSliceBoundary.proteinCarbs,
+          50,
+        );
+        expect(grown.proteinKcal, 70);
+        expect(grown.carbsKcal, 1150);
+
+        final shrunkFurther = adjustMacroSliceBoundary(
+          current,
+          MacroSliceBoundary.proteinCarbs,
+          -50,
+        );
+        expect(shrunkFurther.proteinKcal, current.proteinKcal);
+        expect(shrunkFurther.carbsKcal, current.carbsKcal);
+      },
+    );
   });
 }

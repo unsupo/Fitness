@@ -186,9 +186,51 @@ class _MacroPiePainter extends CustomPainter {
       );
     }
 
+    // Each slice's name, in that slice's own color, at the arc's midpoint —
+    // so the color-to-macro mapping is legible directly on the chart, not
+    // only via the legend underneath.
+    void drawLabel(String text, double startFraction, double sweepFraction, Color color) {
+      if (sweepFraction <= 0) return;
+      final midAngle = -pi / 2 + (startFraction + sweepFraction / 2) * 2 * pi;
+      final point = center + Offset(cos(midAngle), sin(midAngle)) * radius;
+      final painter = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w800,
+            fontSize: 12,
+            shadows: const [
+              Shadow(color: Colors.white, blurRadius: 3),
+              Shadow(color: Colors.white, blurRadius: 3),
+            ],
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      painter.paint(
+        canvas,
+        point - Offset(painter.width / 2, painter.height / 2),
+      );
+    }
+
     drawArc(0, split.proteinFraction, AppColors.proteinRing);
     drawArc(split.proteinFraction, split.carbsFraction, AppColors.carbsRing);
     drawArc(
+      split.proteinFraction + split.carbsFraction,
+      split.fatFraction,
+      AppColors.fatRing,
+    );
+
+    drawLabel('Protein', 0, split.proteinFraction, AppColors.proteinRing);
+    drawLabel(
+      'Carbs',
+      split.proteinFraction,
+      split.carbsFraction,
+      AppColors.carbsRing,
+    );
+    drawLabel(
+      'Fat',
       split.proteinFraction + split.carbsFraction,
       split.fatFraction,
       AppColors.fatRing,

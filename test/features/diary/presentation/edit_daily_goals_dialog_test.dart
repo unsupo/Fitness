@@ -44,7 +44,9 @@ void main() {
   }
 
   testWidgets(
-    'pre-fills the calorie field and the macro legend from the current goals',
+    'pre-fills the calorie field and the macro legend from the current '
+    'goals, rescaled so the pie always starts in sync with the calorie '
+    'field even if the stored macros drifted from it',
     (tester) async {
       await pumpDialog(tester);
 
@@ -54,9 +56,13 @@ void main() {
       expect(calorieField.controller!.text, '2000');
 
       expect(find.byKey(const Key('macro-pie-chart')), findsOneWidget);
-      expect(find.text('150g'), findsOneWidget);
-      expect(find.text('200g'), findsOneWidget);
-      expect(find.text('65g'), findsOneWidget);
+      // startingGoals' stored macros (150/200/65g -> 1985 kcal) don't quite
+      // match the stored calorie goal (2000) -- opening the dialog rescales
+      // them onto the goal (scale = 2000/1985) so the pie's center number
+      // and the calorie field never visibly disagree.
+      expect(find.text('151g (30%)'), findsOneWidget);
+      expect(find.text('202g (40%)'), findsOneWidget);
+      expect(find.text('65g (29%)'), findsOneWidget);
     },
   );
 
@@ -119,11 +125,12 @@ void main() {
       await tester.pumpAndSettle();
 
       // Calorie field itself wasn't touched; protein grew, carbs shrank,
-      // fat untouched.
+      // fat untouched (aside from the on-open rescale onto the 2000
+      // calorie goal, same as the pre-fill test).
       expect(fake.goals.calorieGoal, closeTo(2000, 0.01));
       expect(fake.goals.proteinGoalG, greaterThan(150));
       expect(fake.goals.carbsGoalG, lessThan(200));
-      expect(fake.goals.fatGoalG, closeTo(65, 0.1));
+      expect(fake.goals.fatGoalG, closeTo(65 * (2000 / 1985), 0.1));
     },
   );
 

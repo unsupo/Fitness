@@ -75,6 +75,12 @@ Future<void> showEditDailyGoalsDialog(
     fatG = fat;
   }
 
+  // The stored macro grams don't always sum to the stored calorie goal
+  // (e.g. edited independently before this pie chart existed) — rescale
+  // once up front so the pie's center number always matches the calorie
+  // field the moment the dialog opens, rather than exposing that drift.
+  rescaleMacrosToCalories(current.calorieGoal);
+
   return showDialog<void>(
     context: context,
     builder: (dialogContext) {
@@ -171,12 +177,49 @@ Future<void> showEditDailyGoalsDialog(
                       ),
                       if (canCalculate && tdee != null) ...[
                         const SizedBox(height: 16),
-                        Text(
-                          'Estimated TDEE: ${tdee.round()} kcal',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                'Estimated TDEE: ${tdee.round()} kcal '
+                                '(Maintain)',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              key: const Key('tdee-info-button'),
+                              icon: const Icon(Icons.info_outline, size: 18),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () => showDialog<void>(
+                                context: dialogContext,
+                                builder: (infoContext) => AlertDialog(
+                                  title: const Text('What is TDEE?'),
+                                  content: const Text(
+                                    'Total Daily Energy Expenditure — an '
+                                    'estimate of the calories you burn in a '
+                                    'day at your current weight and '
+                                    'activity level. Eating exactly this '
+                                    'many calories should roughly maintain '
+                                    'your weight; eating less loses weight, '
+                                    'eating more gains it — that\'s what the '
+                                    'Weekly Rate slider below controls.',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(infoContext).pop(),
+                                      child: const Text('Got it'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 8),
                         Row(
@@ -280,23 +323,39 @@ Future<void> showEditDailyGoalsDialog(
                         ),
                       ),
                       const SizedBox(height: 12),
-                      _MacroLegendRow(
-                        key: const Key('goals-protein-legend'),
-                        color: AppColors.proteinRing,
-                        label: 'Protein',
-                        grams: proteinG,
-                      ),
-                      _MacroLegendRow(
-                        key: const Key('goals-carbs-legend'),
-                        color: AppColors.carbsRing,
-                        label: 'Carbs',
-                        grams: carbsG,
-                      ),
-                      _MacroLegendRow(
-                        key: const Key('goals-fat-legend'),
-                        color: AppColors.fatRing,
-                        label: 'Fat',
-                        grams: fatG,
+                      Builder(
+                        builder: (context) {
+                          final split = macroCalorieSplitFromGrams(
+                            proteinG: proteinG,
+                            carbsG: carbsG,
+                            fatG: fatG,
+                          );
+                          return Column(
+                            children: [
+                              _MacroLegendRow(
+                                key: const Key('goals-protein-legend'),
+                                color: AppColors.proteinRing,
+                                label: 'Protein',
+                                grams: proteinG,
+                                fraction: split.proteinFraction,
+                              ),
+                              _MacroLegendRow(
+                                key: const Key('goals-carbs-legend'),
+                                color: AppColors.carbsRing,
+                                label: 'Carbs',
+                                grams: carbsG,
+                                fraction: split.carbsFraction,
+                              ),
+                              _MacroLegendRow(
+                                key: const Key('goals-fat-legend'),
+                                color: AppColors.fatRing,
+                                label: 'Fat',
+                                grams: fatG,
+                                fraction: split.fatFraction,
+                              ),
+                            ],
+                          );
+                        },
                       ),
                       if (error.isNotEmpty) ...[
                         const SizedBox(height: 8),
@@ -365,11 +424,16 @@ class _MacroLegendRow extends StatelessWidget {
     required this.color,
     required this.label,
     required this.grams,
+    required this.fraction,
   });
 
   final Color color;
   final String label;
   final double grams;
+
+  /// This macro's share of the calorie total, `0.0-1.0` — shown alongside
+  /// the gram value so the split reads at a glance without doing the math.
+  final double fraction;
 
   @override
   Widget build(BuildContext context) {
@@ -385,7 +449,7 @@ class _MacroLegendRow extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(child: Text(label)),
           Text(
-            '${grams.round()}g',
+            '${grams.round()}g (${(fraction * 100).round()}%)',
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
         ],

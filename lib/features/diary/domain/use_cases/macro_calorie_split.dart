@@ -51,35 +51,57 @@ MacroCalorieSplit macroCalorieSplitFromGrams({
 /// x to y".
 enum MacroSliceBoundary { proteinCarbs, carbsFat, fatProtein }
 
+/// The smallest share of the total any single slice may hold. Without a
+/// floor, a slice dragged down to literal zero collapses its two
+/// boundaries onto the same angle — indistinguishable to touch, and
+/// impossible to grab and drag back out. Keeping a real minimum sliver
+/// means every boundary is always a real, separately-selectable target.
+const minSliceFraction = 0.05;
+
 /// Moves one boundary of the pie by [deltaKcal], transferring calories
 /// between exactly the two slices that boundary separates — the third
 /// slice, and the pie's total, are always left untouched. Positive
 /// [deltaKcal] grows the first-named slice at the second-named slice's
 /// expense (e.g. for [MacroSliceBoundary.proteinCarbs], positive moves
-/// kcal from carbs to protein); negative does the reverse. Clamped so
-/// neither slice goes negative.
+/// kcal from carbs to protein); negative does the reverse. Clamped at
+/// [minSliceFraction] of the total, not zero — see there for why. A slice
+/// that starts out already below the floor (stale/imported data) can
+/// still be grown back out; it just can't be shrunk further.
 MacroCalorieSplit adjustMacroSliceBoundary(
   MacroCalorieSplit current,
   MacroSliceBoundary boundary,
   double deltaKcal,
 ) {
+  final floor = current.totalKcal * minSliceFraction;
+  double lowerBound(double giving) => -(giving - floor).clamp(0.0, double.infinity);
+  double upperBound(double giving) => (giving - floor).clamp(0.0, double.infinity);
+
   switch (boundary) {
     case MacroSliceBoundary.proteinCarbs:
-      final clamped = deltaKcal.clamp(-current.proteinKcal, current.carbsKcal);
+      final clamped = deltaKcal.clamp(
+        lowerBound(current.proteinKcal),
+        upperBound(current.carbsKcal),
+      );
       return MacroCalorieSplit(
         proteinKcal: current.proteinKcal + clamped,
         carbsKcal: current.carbsKcal - clamped,
         fatKcal: current.fatKcal,
       );
     case MacroSliceBoundary.carbsFat:
-      final clamped = deltaKcal.clamp(-current.carbsKcal, current.fatKcal);
+      final clamped = deltaKcal.clamp(
+        lowerBound(current.carbsKcal),
+        upperBound(current.fatKcal),
+      );
       return MacroCalorieSplit(
         proteinKcal: current.proteinKcal,
         carbsKcal: current.carbsKcal + clamped,
         fatKcal: current.fatKcal - clamped,
       );
     case MacroSliceBoundary.fatProtein:
-      final clamped = deltaKcal.clamp(-current.fatKcal, current.proteinKcal);
+      final clamped = deltaKcal.clamp(
+        lowerBound(current.fatKcal),
+        upperBound(current.proteinKcal),
+      );
       return MacroCalorieSplit(
         proteinKcal: current.proteinKcal - clamped,
         carbsKcal: current.carbsKcal,

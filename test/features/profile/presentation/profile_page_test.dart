@@ -159,7 +159,7 @@ void main() {
 
     // Verify TDEE estimated and weekly rate slider displayed
     // TDEE = (10 * 80 + 6.25 * 180 - 5 * 30 + 5) * 1.2 = (800 + 1125 - 150 + 5) * 1.2 = 1780 * 1.2 = 2136
-    expect(find.text('Estimated TDEE: 2136 kcal'), findsOneWidget);
+    expect(find.textContaining('Estimated TDEE: 2136 kcal'), findsOneWidget);
     expect(find.byKey(const Key('weekly-rate-slider')), findsOneWidget);
 
     // Initial calories is 2000. 
