@@ -95,7 +95,11 @@ class _QuickAddModalState extends ConsumerState<QuickAddModal> {
               ),
               const SizedBox(width: 8),
               PopupMenuButton<String>(
-                icon: const Icon(Icons.camera_alt_outlined, color: AppColors.accentOrange, size: 28),
+                icon: const Icon(
+                  Icons.camera_alt_outlined,
+                  color: AppColors.accentOrange,
+                  size: 28,
+                ),
                 onSelected: (value) {
                   Navigator.pop(context); // Close sheet
                   if (value == 'scan') {
@@ -109,7 +113,10 @@ class _QuickAddModalState extends ConsumerState<QuickAddModal> {
                     value: 'scan',
                     child: Row(
                       children: [
-                        Icon(Icons.qr_code_scanner, color: AppColors.accentOrange),
+                        Icon(
+                          Icons.qr_code_scanner,
+                          color: AppColors.accentOrange,
+                        ),
                         SizedBox(width: 8),
                         Text('Scan Barcode'),
                       ],
@@ -142,7 +149,9 @@ class _QuickAddModalState extends ConsumerState<QuickAddModal> {
               for (final meal in MealType.values)
                 DropdownMenuItem(
                   value: meal,
-                  child: Text(meal.name[0].toUpperCase() + meal.name.substring(1)),
+                  child: Text(
+                    meal.name[0].toUpperCase() + meal.name.substring(1),
+                  ),
                 ),
             ],
             onChanged: (val) {
@@ -154,8 +163,10 @@ class _QuickAddModalState extends ConsumerState<QuickAddModal> {
           Expanded(
             child: _query.isEmpty
                 ? recentFoodsAsync.when(
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (err, _) => Center(child: Text('Error loading recent foods: $err')),
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (err, _) =>
+                        Center(child: Text('Error loading recent foods: $err')),
                     data: (foods) {
                       if (foods.isEmpty) {
                         return const Center(
@@ -179,8 +190,10 @@ class _QuickAddModalState extends ConsumerState<QuickAddModal> {
                     },
                   )
                 : searchResultsAsync.when(
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (err, _) => Center(child: Text('Search error: $err')),
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (err, _) =>
+                        Center(child: Text('Search error: $err')),
                     data: (foods) {
                       if (foods.isEmpty) {
                         return const Center(
@@ -257,101 +270,134 @@ class _FoodListSectionState extends ConsumerState<_FoodListSection> {
                   TextEditingController(text: '1');
               final selectedUnit = widget.selectedUnits[food.id] ??= 'serving';
 
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                onTap: () {
-                  Navigator.pop(context); // Close sheet
-                  context.push('/food-detail/${food.id}');
-                },
-                title: Text(food.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text(
-                  '${food.calories.round()} kcal | ${food.brand ?? 'Generic'}',
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Quantity input
-                    SizedBox(
-                      width: 45,
-                      child: TextField(
-                        controller: qController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 14),
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                          border: OutlineInputBorder(),
-                        ),
-                        onChanged: (_) => setState(() {}),
-                      ),
+              return Material(
+                type: MaterialType.transparency,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  onTap: () {
+                    Navigator.pop(context); // Close sheet
+                    context.push('/food-detail/${food.id}');
+                  },
+                  title: Text(
+                    food.name,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    '${food.calories.round()} kcal | ${food.brand ?? 'Generic'}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
                     ),
-                    const SizedBox(width: 4),
-                    // Unit selector dropdown
-                    DropdownButton<String>(
-                      value: selectedUnit,
-                      underline: const SizedBox.shrink(),
-                      isDense: true,
-                      style: const TextStyle(fontSize: 12, color: Colors.black),
-                      items: [
-                        for (final unit in availableUnits)
-                          DropdownMenuItem(
-                            value: unit,
-                            child: Text(unit),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Quantity input
+                      SizedBox(
+                        width: 45,
+                        child: TextField(
+                          controller: qController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
                           ),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() {
-                            widget.selectedUnits[food.id] = val;
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(width: 4),
-                    // Quick add + button
-                    IconButton(
-                      icon: const Icon(Icons.add_circle, color: AppColors.accentOrange, size: 28),
-                      onPressed: () async {
-                        final double quantityValue = double.tryParse(qController.text) ?? 1.0;
-                        final servingMultiplier = LoggedQuantityConverter.toServingMultiplier(
-                          LoggedQuantity(amount: quantityValue, unit: selectedUnit),
-                          servingSize: food.servingSize,
-                          servingUnit: food.servingUnit,
-                        );
-
-                        final calculatedCalories = food.calories * servingMultiplier;
-                        final calculatedProtein = food.proteinG * servingMultiplier;
-                        final calculatedCarbs = food.carbsG * servingMultiplier;
-                        final calculatedFat = food.fatG * servingMultiplier;
-
-                        await ref.read(diaryRepositoryProvider).logFood(
-                              foodId: food.id,
-                              quantity: LoggedQuantity(amount: quantityValue, unit: selectedUnit),
-                              mealType: widget.mealType,
-                              loggedAt: DateTime.now(),
-                              calories: calculatedCalories,
-                              proteinG: calculatedProtein,
-                              carbsG: calculatedCarbs,
-                              fatG: calculatedFat,
-                              servingSize: food.servingSize,
-                              servingUnit: food.servingUnit,
-                            );
-
-                        widget.onFoodLogged();
-
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Logged ${quantityValue.toStringAsFixed(1)}x ${food.name} to ${widget.mealType.name}'),
-                              duration: const Duration(seconds: 1),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 14),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 6,
                             ),
-                          );
-                        }
-                      },
-                    ),
-                  ],
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      // Unit selector dropdown
+                      DropdownButton<String>(
+                        value: selectedUnit,
+                        underline: const SizedBox.shrink(),
+                        isDense: true,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.black,
+                        ),
+                        items: [
+                          for (final unit in availableUnits)
+                            DropdownMenuItem(value: unit, child: Text(unit)),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              widget.selectedUnits[food.id] = val;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(width: 4),
+                      // Quick add + button
+                      IconButton(
+                        icon: const Icon(
+                          Icons.add_circle,
+                          color: AppColors.accentOrange,
+                          size: 28,
+                        ),
+                        onPressed: () async {
+                          final double quantityValue =
+                              double.tryParse(qController.text) ?? 1.0;
+                          final servingMultiplier =
+                              LoggedQuantityConverter.toServingMultiplier(
+                                LoggedQuantity(
+                                  amount: quantityValue,
+                                  unit: selectedUnit,
+                                ),
+                                servingSize: food.servingSize,
+                                servingUnit: food.servingUnit,
+                              );
+
+                          final calculatedCalories =
+                              food.calories * servingMultiplier;
+                          final calculatedProtein =
+                              food.proteinG * servingMultiplier;
+                          final calculatedCarbs =
+                              food.carbsG * servingMultiplier;
+                          final calculatedFat = food.fatG * servingMultiplier;
+
+                          await ref
+                              .read(diaryRepositoryProvider)
+                              .logFood(
+                                foodId: food.id,
+                                quantity: LoggedQuantity(
+                                  amount: quantityValue,
+                                  unit: selectedUnit,
+                                ),
+                                mealType: widget.mealType,
+                                loggedAt: DateTime.now(),
+                                calories: calculatedCalories,
+                                proteinG: calculatedProtein,
+                                carbsG: calculatedCarbs,
+                                fatG: calculatedFat,
+                                servingSize: food.servingSize,
+                                servingUnit: food.servingUnit,
+                              );
+
+                          widget.onFoodLogged();
+
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Logged ${quantityValue.toStringAsFixed(1)}x ${food.name} to ${widget.mealType.name}',
+                                ),
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
