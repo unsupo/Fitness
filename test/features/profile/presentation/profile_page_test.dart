@@ -185,4 +185,30 @@ void main() {
     final calorieFieldVal = (tester.widget(find.byKey(const Key('goals-calorie-field'))) as TextField).controller?.text;
     expect(double.parse(calorieFieldVal!), closeTo(2136, 100)); // allow some tolerance depending on slider tap accuracy
   });
+
+  testWidgets('shows and updates training focus preference', (tester) async {
+    await pumpProfilePage(
+      tester,
+      diaryFake: FakeDiaryRepository(goals: goals),
+      analyticsFake: FakeAnalyticsRepository(),
+    );
+
+    // Verify section and dropdown exists
+    expect(find.text('Training Preferences'), findsOneWidget);
+    expect(find.byKey(const Key('training-focus-dropdown')), findsOneWidget);
+
+    // Initial value is Hypertrophy (Muscle Growth)
+    expect(find.text('Hypertrophy (Muscle Growth)'), findsOneWidget);
+
+    // Open dropdown
+    await tester.tap(find.byKey(const Key('training-focus-dropdown')));
+    await tester.pumpAndSettle();
+
+    // Select Strength Training
+    await tester.tap(find.text('Strength Training').last);
+    await tester.pumpAndSettle();
+
+    // Verify it updated in the UI
+    expect(find.text('Strength Training'), findsOneWidget);
+  });
 }

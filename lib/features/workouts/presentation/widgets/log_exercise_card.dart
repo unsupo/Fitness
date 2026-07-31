@@ -5,6 +5,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/machine.dart';
 import '../../domain/entities/workout_set.dart';
 import '../../domain/use_cases/previous_set_for.dart';
+import '../../domain/use_cases/generate_overload_recommendation.dart';
 
 /// Values typed into one row's confirm action, resolved against the
 /// previous set's values for whichever field was left blank. The card
@@ -39,6 +40,7 @@ class LogExerciseCard extends StatefulWidget {
     required this.machine,
     required this.sets,
     required this.history,
+    required this.trainingFocus,
     required this.currentSessionId,
     required this.onConfirmSet,
     required this.onDeleteSet,
@@ -53,6 +55,7 @@ class LogExerciseCard extends StatefulWidget {
   /// "Previous" hint via [previousSetFor].
   final List<WorkoutSet> history;
 
+  final String trainingFocus;
   final int currentSessionId;
 
   /// Called when a row is confirmed (new or edited), with its 1-based
@@ -153,6 +156,10 @@ class _LogExerciseCardState extends State<LogExerciseCard> {
     final row = _rows[index];
     final setNumber = index + 1;
     final prev = _previousFor(setNumber);
+    final rec = generateOverloadRecommendation(
+      previousSet: prev,
+      trainingFocus: widget.trainingFocus,
+    );
 
     final input = _isCardio
         ? LogSetInput(
@@ -162,8 +169,8 @@ class _LogExerciseCardState extends State<LogExerciseCard> {
                 double.tryParse(row.durationCtrl.text) ?? prev?.durationMinutes,
           )
         : LogSetInput(
-            weight: double.tryParse(row.weightCtrl.text) ?? prev?.weight,
-            reps: int.tryParse(row.repsCtrl.text) ?? prev?.reps,
+            weight: double.tryParse(row.weightCtrl.text) ?? rec?.weight ?? prev?.weight,
+            reps: int.tryParse(row.repsCtrl.text) ?? rec?.reps ?? prev?.reps,
           );
 
     widget.onConfirmSet(setNumber, input);
@@ -228,6 +235,10 @@ class _LogExerciseCardState extends State<LogExerciseCard> {
     final row = _rows[index];
     final setNumber = index + 1;
     final prev = _previousFor(setNumber);
+    final rec = generateOverloadRecommendation(
+      previousSet: prev,
+      trainingFocus: widget.trainingFocus,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -235,13 +246,29 @@ class _LogExerciseCardState extends State<LogExerciseCard> {
         children: [
           SizedBox(width: 44, child: Text('Set $setNumber')),
           Expanded(
-            child: Text(
-              prev == null ? '—' : _previousLabel(prev),
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12,
-              ),
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  prev == null ? '—' : 'Prev: ${_previousLabel(prev)}',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (rec != null)
+                  Text(
+                    'Target: ${_fmt(rec.weight)} ${prev!.unit} x ${rec.reps}',
+                    style: const TextStyle(
+                      color: AppColors.brandGreen,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
             ),
           ),
           const SizedBox(width: 8),
@@ -301,7 +328,7 @@ class _LogExerciseCardState extends State<LogExerciseCard> {
                 ),
                 decoration: InputDecoration(
                   labelText: 'Wt',
-                  hintText: _fmtOrNull(prev?.weight),
+                  hintText: rec != null ? _fmt(rec.weight) : _fmtOrNull(prev?.weight),
                 ),
               ),
             ),
@@ -314,7 +341,7 @@ class _LogExerciseCardState extends State<LogExerciseCard> {
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: 'Reps',
-                  hintText: prev?.reps?.toString(),
+                  hintText: rec != null ? rec.reps.toString() : prev?.reps?.toString(),
                 ),
               ),
             ),

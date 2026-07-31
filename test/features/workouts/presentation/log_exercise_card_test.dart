@@ -52,6 +52,7 @@ void main() {
               machine: _benchPress,
               sets: sets,
               history: const [],
+              trainingFocus: 'hypertrophy',
               currentSessionId: 99,
               onConfirmSet: (_, _) {},
               onDeleteSet: (_) {},
@@ -110,6 +111,7 @@ void main() {
               machine: _benchPress,
               sets: const [],
               history: history,
+              trainingFocus: 'hypertrophy',
               currentSessionId: 99,
               onConfirmSet: (_, _) {},
               onDeleteSet: (_) {},
@@ -119,7 +121,8 @@ void main() {
 
         // Previous-value label text; the field's hint text separately also
         // shows "130", which is expected (that's the fallback value).
-        expect(find.text('130 lb x 10'), findsOneWidget);
+        expect(find.text('Prev: 130 lb x 10'), findsOneWidget);
+        expect(find.text('Target: 130 lb x 11'), findsOneWidget);
       },
     );
 
@@ -132,6 +135,7 @@ void main() {
             machine: _benchPress,
             sets: const [],
             history: const [],
+            trainingFocus: 'hypertrophy',
             currentSessionId: 99,
             onConfirmSet: (_, _) {},
             onDeleteSet: (_) {},
@@ -161,6 +165,7 @@ void main() {
               machine: _benchPress,
               sets: const [],
               history: const [],
+              trainingFocus: 'hypertrophy',
               currentSessionId: 99,
               onConfirmSet: (setNumber, input) {
                 confirmedSetNumber = setNumber;
@@ -208,6 +213,7 @@ void main() {
               machine: _benchPress,
               sets: const [],
               history: history,
+              trainingFocus: 'hypertrophy',
               currentSessionId: 99,
               onConfirmSet: (setNumber, input) {
                 confirmedWeight = input.weight;
@@ -221,7 +227,7 @@ void main() {
         await tester.tap(find.byKey(const Key('confirm-set-button-1-1')));
 
         expect(confirmedWeight, 130);
-        expect(confirmedReps, 10);
+        expect(confirmedReps, 11);
       },
     );
 
@@ -246,6 +252,7 @@ void main() {
             machine: _benchPress,
             sets: sets,
             history: const [],
+            trainingFocus: 'hypertrophy',
             currentSessionId: 99,
             onConfirmSet: (_, _) {},
             onDeleteSet: (id) => deletedId = id,
@@ -274,6 +281,7 @@ void main() {
               machine: _benchPress,
               sets: const [],
               history: const [],
+              trainingFocus: 'hypertrophy',
               currentSessionId: 99,
               onConfirmSet: (_, _) {},
               onDeleteSet: (_) => deleteCalled = true,
@@ -299,6 +307,7 @@ void main() {
             machine: _treadmill,
             sets: const [],
             history: const [],
+            trainingFocus: 'hypertrophy',
             currentSessionId: 99,
             onConfirmSet: (_, _) {},
             onDeleteSet: (_) {},

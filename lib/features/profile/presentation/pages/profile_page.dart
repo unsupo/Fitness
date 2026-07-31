@@ -11,6 +11,7 @@ import '../../../analytics/presentation/widgets/edit_weight_goal_dialog.dart';
 import '../../../diary/domain/entities/daily_goals.dart';
 import '../../../diary/presentation/controllers/diary_providers.dart';
 import '../../../diary/presentation/widgets/edit_daily_goals_dialog.dart';
+import '../../../workouts/presentation/controllers/overload_providers.dart';
 
 const _activityLabels = {
   'sedentary': 'Sedentary',
@@ -42,6 +43,8 @@ class ProfilePage extends StatelessWidget {
             _DailyGoalsSection(),
             SizedBox(height: 16),
             _BiometricProfileSection(),
+            SizedBox(height: 16),
+            _TrainingPreferencesSection(),
           ],
         ),
       ),
@@ -231,6 +234,47 @@ class _StatRow extends StatelessWidget {
         children: [
           Text(label, style: const TextStyle(color: AppColors.textSecondary)),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrainingPreferencesSection extends ConsumerWidget {
+  const _TrainingPreferencesSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final focus = ref.watch(trainingFocusProvider);
+
+    return SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Training Preferences',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            key: const Key('training-focus-dropdown'),
+            initialValue: focus,
+            decoration: const InputDecoration(
+              labelText: 'Training Focus',
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            items: const [
+              DropdownMenuItem(value: 'hypertrophy', child: Text('Hypertrophy (Muscle Growth)')),
+              DropdownMenuItem(value: 'strength', child: Text('Strength Training')),
+            ],
+            onChanged: (value) {
+              if (value != null) {
+                ref.read(trainingFocusProvider.notifier).setFocus(value);
+              }
+            },
+          ),
         ],
       ),
     );

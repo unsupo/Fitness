@@ -8,6 +8,7 @@ import '../../domain/entities/workout_session.dart';
 import '../../domain/entities/workout_set.dart';
 import '../controllers/exercises_providers.dart';
 import '../controllers/log_providers.dart';
+import '../controllers/overload_providers.dart';
 import '../controllers/workout_repository_provider.dart';
 import 'log_exercise_card.dart';
 
@@ -44,6 +45,7 @@ class LogActiveView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final setsAsync = ref.watch(sessionSetsProvider(session.id));
     final dateLabel = DateFormat('MMM d, yyyy').format(session.sessionDate);
+    final trainingFocus = ref.watch(trainingFocusProvider);
 
     return SafeArea(
       child: Column(
@@ -113,6 +115,7 @@ class LogActiveView extends ConsumerWidget {
                               data: (history) => history,
                               orElse: () => const [],
                             ),
+                            trainingFocus: trainingFocus,
                             currentSessionId: session.id,
                             onConfirmSet: (setNumber, input) => _confirmSet(
                               ref: ref,
